@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Copy, Download, ImageOff } from "lucide-react"
+import { Brush, Copy, Download, Edit3, ImageOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import {
@@ -14,9 +14,14 @@ import { useWorkflowContext } from "../../contexts/WorkflowContext"
 import { useTemplateContext } from "../../contexts/useTemplateContext"
 import { STATUS_LABEL, STATUS_TINT, type SavedImage } from "../../types/Message"
 import { Badge } from "@/components/ui/badge"
-import { triggerBlobDownload, getImageFilename } from "../../utils/downloadImages"
+import {
+  triggerBlobDownload,
+  getImageFilename,
+} from "../../utils/downloadImages"
+import { GalleryInpaintEditor } from "../GalleryInpaintEditor"
+import { ImageEditorDialog } from "../image-editor/ImageEditorDialog"
 
-function defaultName(filename: string) {
+function defaultName(filename: string): string {
   return filename.replace(/\.[^/.]+$/, "")
 }
 
@@ -34,20 +39,25 @@ export function ImageDetailPanel({
   onClose,
   onChanged,
   singleDownloadMode = "newtab",
-}: DetailProps) {
+}: DetailProps): JSX.Element {
   const [note, setNote] = useState(image.note)
   const [newTag, setNewTag] = useState("")
   const [tags, setTags] = useState<string[]>(image.tags)
   const [imgError, setImgError] = useState(false)
   const [autoTagLoading, setAutoTagLoading] = useState(false)
+  const [inpaintOpen, setInpaintOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
-  const handleAutoTag = async () => {
+  const handleAutoTag = async (): Promise<void> => {
     setAutoTagLoading(true)
     try {
       const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
-      const res = await fetch(`${cleanBackendUrl}/saved-images/${image.hash}/auto-tags`, {
-        method: "POST",
-      })
+      const res = await fetch(
+        `${cleanBackendUrl}/saved-images/${image.hash}/auto-tags`,
+        {
+          method: "POST",
+        }
+      )
       if (!res.ok) throw new Error("Auto-tag API failed")
       const data = (await res.json()) as { hash: string; tags: string[] }
       setTags(data.tags)
@@ -73,7 +83,7 @@ export function ImageDetailPanel({
   const { saveWorkflow } = useWorkflowContext()
   const { saveTemplate } = useTemplateContext()
 
-  const saveNote = async () => {
+  const saveNote = async (): Promise<void> => {
     try {
       await curationApi.patchNote(backendUrl, image.hash, note)
       onChanged()
@@ -81,7 +91,7 @@ export function ImageDetailPanel({
       toast.error("태그/노트 저장에 실패했습니다.")
     }
   }
-  const addTag = async () => {
+  const addTag = async (): Promise<void> => {
     const t = newTag.trim()
     if (!t) return
     try {
@@ -93,7 +103,7 @@ export function ImageDetailPanel({
       toast.error("태그/노트 저장에 실패했습니다.")
     }
   }
-  const removeTag = async (tag: string) => {
+  const removeTag = async (tag: string): Promise<void> => {
     try {
       await curationApi.removeTag(backendUrl, image.hash, tag)
       setTags((prev) => prev.filter((x) => x !== tag))
@@ -103,18 +113,22 @@ export function ImageDetailPanel({
     }
   }
 
-  const handleSaveWorkflow = () => {
-    if (!image.workflow || !workflowName.trim()) return
+  const handleSaveWorkflow = (): void => {
+    if (image.workflow === undefined || workflowName.trim() === "") return
     saveWorkflow(workflowName.trim(), JSON.stringify(image.workflow))
     setWorkflowSaved(true)
-    setTimeout(() => setWorkflowSaved(false), 2000)
+    setTimeout(() => {
+      setWorkflowSaved(false)
+    }, 2000)
   }
 
-  const handleSaveTemplate = () => {
-    if (!image.cegTemplate || !templateName.trim()) return
+  const handleSaveTemplate = (): void => {
+    if (image.cegTemplate === undefined || templateName.trim() === "") return
     saveTemplate(templateName.trim(), image.cegTemplate)
     setTemplateSaved(true)
-    setTimeout(() => setTemplateSaved(false), 2000)
+    setTimeout(() => {
+      setTemplateSaved(false)
+    }, 2000)
   }
 
   return (
@@ -127,31 +141,64 @@ export function ImageDetailPanel({
           {STATUS_LABEL[image.status]}
         </Badge>
 
-        <h3 className="truncate font-mono text-sm">
-          {image.originalFilename}
-        </h3>
+        <h3 className="truncate font-mono text-sm">{image.originalFilename}</h3>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setInpaintOpen(true)
+              }}
+            >
+              <Brush className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>인페인팅 편집</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               size="sm"
               variant="ghost"
               className="ml-auto"
-              onClick={async () => {
+              onClick={() => {
+                setEditOpen(true)
+              }}
+            >
+              <Edit3 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>이미지 편집</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
                 const cleanBackendUrl = backendUrl.replace(/\/+$/, "")
                 const url = `${cleanBackendUrl}/saved-images/${image.hash}`
                 if (singleDownloadMode === "direct") {
                   try {
-                    const response = await fetch(url)
-                    if (!response.ok) {
-                      throw new Error(`HTTP error! status: ${response.status}`)
-                    }
-                    const blob = await response.blob()
-                    triggerBlobDownload(blob, getImageFilename(image))
-                  } catch (err) {
-                    console.error("Direct download failed:", err)
-                    toast.error(
-                      "이미지 다운로드에 실패했습니다. CORS 정책 또는 네트워크 연결을 확인해주세요."
-                    )
+                    fetch(url)
+                      .then(async (response) => {
+                        if (!response.ok) {
+                          throw new Error(
+                            `HTTP error! status: ${String(response.status)}`
+                          )
+                        }
+                        const blob = await response.blob()
+                        triggerBlobDownload(blob, getImageFilename(image))
+                      })
+                      .catch((err: unknown) => {
+                        console.error("Direct download failed:", err)
+                        toast.error(
+                          "이미지 다운로드에 실패했습니다. CORS 정책 또는 네트워크 연결을 확인해주세요."
+                        )
+                      })
+                  } catch {
+                    // fetch may throw if URL is invalid
                   }
                 } else {
                   window.open(url, "_blank")
@@ -167,6 +214,26 @@ export function ImageDetailPanel({
           닫기
         </Button>
       </div>
+      {inpaintOpen && (
+        <GalleryInpaintEditor
+          open={inpaintOpen}
+          backendUrl={backendUrl}
+          imageUrl={`${backendUrl}/saved-images/${image.hash}`}
+          filename={getImageFilename(image)}
+          sourcePrompt={image.prompt}
+          onOpenChange={setInpaintOpen}
+        />
+      )}
+      {editOpen && (
+        <ImageEditorDialog
+          open={editOpen}
+          backendUrl={backendUrl}
+          imageUrl={`${backendUrl}/saved-images/${image.hash}`}
+          filename={getImageFilename(image)}
+          parentHash={image.hash}
+          onOpenChange={setEditOpen}
+        />
+      )}
       {imgError ? (
         <div className="flex h-64 w-full items-center justify-center bg-muted text-muted-foreground">
           <ImageOff className="h-10 w-10" />
@@ -175,29 +242,37 @@ export function ImageDetailPanel({
         <img
           src={`${backendUrl}/saved-images/${image.hash}`}
           alt={image.originalFilename}
+          decoding="async"
           className="max-h-[60vh] w-full object-contain"
-          onError={() => setImgError(true)}
+          onError={() => {
+            setImgError(true)
+          }}
         />
       )}
       <div className="space-y-1 text-xs">
         <div className="font-mono text-muted-foreground">
           hash: {image.hash}
         </div>
-        <div className="flex items-start gap-2 bg-muted/30 p-2 rounded-md">
+        <div className="flex items-start gap-2 rounded-md bg-muted/30 p-2">
           <div className="flex-1 break-all select-text">
-            <span className="font-semibold text-muted-foreground select-none mr-1">prompt:</span>
+            <span className="mr-1 font-semibold text-muted-foreground select-none">
+              prompt:
+            </span>
             {image.prompt}
           </div>
           <Button
             size="sm"
             variant="outline"
-            className="h-7 shrink-0 gap-1 px-2 text-[10px] font-semibold border-line bg-background shadow-xs hover:bg-accent/50"
+            className="h-7 shrink-0 gap-1 border-line bg-background px-2 text-[10px] font-semibold shadow-xs hover:bg-accent/50"
             onClick={() => {
-              navigator.clipboard.writeText(image.prompt || "").then(() => {
-                toast.success("프롬프트가 클립보드에 복사되었습니다.")
-              }).catch(() => {
-                toast.error("클립보드 복사에 실패했습니다.")
-              })
+              navigator.clipboard
+                .writeText(image.prompt)
+                .then(() => {
+                  toast.success("프롬프트가 클립보드에 복사되었습니다.")
+                })
+                .catch(() => {
+                  toast.error("클립보드 복사에 실패했습니다.")
+                })
             }}
           >
             <Copy className="h-3 w-3" />
@@ -209,7 +284,8 @@ export function ImageDetailPanel({
           {image.workerId ?? "—"}
         </div>
       </div>
-      {(image.workflow || image.cegTemplate) && (
+      {(image.workflow !== undefined ||
+        (image.cegTemplate !== undefined && image.cegTemplate !== "")) && (
         <div className="space-y-2 rounded-md border p-3">
           {image.workflow && (
             <div className="space-y-1">
@@ -219,7 +295,9 @@ export function ImageDetailPanel({
                   className="h-8 flex-1"
                   placeholder="워크플로우 이름"
                   value={workflowName}
-                  onChange={(e) => setWorkflowName(e.target.value)}
+                  onChange={(e) => {
+                    setWorkflowName(e.target.value)
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSaveWorkflow()
                   }}
@@ -238,7 +316,7 @@ export function ImageDetailPanel({
               )}
             </div>
           )}
-          {image.cegTemplate && (
+          {image.cegTemplate !== undefined && image.cegTemplate !== "" && (
             <div className="space-y-1">
               <label className="text-xs font-semibold">템플릿 저장</label>
               <div className="flex items-center gap-2">
@@ -246,7 +324,9 @@ export function ImageDetailPanel({
                   className="h-8 flex-1"
                   placeholder="템플릿 이름"
                   value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
+                  onChange={(e) => {
+                    setTemplateName(e.target.value)
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSaveTemplate()
                   }}
@@ -271,10 +351,18 @@ export function ImageDetailPanel({
         <label className="text-xs font-semibold">노트</label>
         <Textarea
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(e) => {
+            setNote(e.target.value)
+          }}
           rows={3}
         />
-        <Button size="sm" variant="outline" onClick={saveNote}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            void saveNote()
+          }}
+        >
           노트 저장
         </Button>
       </div>
@@ -291,7 +379,9 @@ export function ImageDetailPanel({
                 >
                   <button
                     type="button"
-                    onClick={() => removeTag(t)}
+                    onClick={() => {
+                      void removeTag(t)
+                    }}
                     aria-label={`${t} 태그 제거`}
                   >
                     #{t} ×
@@ -305,8 +395,10 @@ export function ImageDetailPanel({
             <Button
               size="sm"
               variant="outline"
-              className="h-7 text-[10px] gap-1 font-semibold text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
-              onClick={handleAutoTag}
+              className="h-7 gap-1 border-primary/30 bg-primary/5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+              onClick={() => {
+                void handleAutoTag()
+              }}
               disabled={autoTagLoading}
             >
               {autoTagLoading ? "생성 중..." : "태그 자동 완성"}
@@ -318,12 +410,22 @@ export function ImageDetailPanel({
             className="h-8 w-48"
             placeholder="새 태그"
             value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
+            onChange={(e) => {
+              setNewTag(e.target.value)
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") addTag()
+              if (e.key === "Enter") {
+                void addTag()
+              }
             }}
           />
-          <Button size="sm" variant="outline" onClick={addTag}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              void addTag()
+            }}
+          >
             추가
           </Button>
         </div>
@@ -332,16 +434,20 @@ export function ImageDetailPanel({
   )
 }
 
-export function ImageDetail(props: DetailProps) {
+export function ImageDetail(props: DetailProps): JSX.Element {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 select-text"
       onClick={props.onClose}
-      onMouseDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => {
+        e.stopPropagation()
+      }}
     >
       <div
         className="flex max-h-full w-full max-w-3xl flex-col gap-3 overflow-auto rounded-lg bg-background p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+        }}
       >
         <ImageDetailPanel {...props} />
       </div>

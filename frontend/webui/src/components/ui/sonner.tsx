@@ -1,5 +1,5 @@
-import { useTheme } from "@/components/theme-provider"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { useTheme } from "@/components/theme-context"
+import { Toaster as Sonner } from "sonner"
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -8,11 +8,12 @@ import {
   Loader2Icon,
 } from "lucide-react"
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = (props: Parameters<typeof Sonner>[0]): React.JSX.Element => {
   const { theme } = useTheme()
 
   return (
     <Sonner
+      {...props}
       theme={theme}
       className="toaster group"
       icons={{
@@ -35,7 +36,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
           toast: "cn-toast",
         },
       }}
-      {...props}
     />
   )
 }

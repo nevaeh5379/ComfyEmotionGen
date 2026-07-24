@@ -2,31 +2,44 @@ import { useCallback, useMemo } from "react"
 import { API, HEADERS } from "@/lib/api"
 import { toast } from "sonner"
 import { useBackend } from "./useBackend"
-import { useSessionManager } from "./useSessionManager"
 import { useBackendUrl } from "./useBackendUrl"
 import { useConfirm } from "./useConfirm"
 import { useLatestRef } from "./useLatestRef"
+import type { ActiveStateRaw, SessionMarkerRaw } from "../utils/sessionUtils"
 
-export function useJobActions() {
+interface JobActionsSession {
+  sortedMarkers: SessionMarkerRaw[]
+  selectedSessionId: string
+  activeState: ActiveStateRaw
+  refetchStats: () => void
+}
+
+export function useJobActions({
+  sortedMarkers,
+  selectedSessionId,
+  activeState,
+  refetchStats,
+}: JobActionsSession): {
+  handleTogglePause: () => Promise<void>
+  handleCancelAll: () => Promise<void>
+  handleRetryAllFailed: () => Promise<void>
+  handleDeleteAllFailed: () => Promise<void>
+} {
   const backendUrl = useBackendUrl()
+
   const { paused } = useBackend()
-  const {
-    sortedMarkers,
-    selectedSessionId,
-    activeState,
-    refetchStats,
-  } = useSessionManager()
   const confirm = useConfirm()
 
   const sessionRange = useMemo(() => {
-    if (sortedMarkers.length === 0 || !selectedSessionId) return { from: null, to: null }
+    if (sortedMarkers.length === 0 || selectedSessionId === "")
+      return { from: null, to: null }
     const targetIdx = sortedMarkers.findIndex((m) => m.id === selectedSessionId)
     if (targetIdx === -1) return { from: null, to: null }
 
     const target = sortedMarkers[targetIdx]
     if (!target) return { from: null, to: null }
 
-    const isCurrentActive = activeState && selectedSessionId === activeState.activeSessionId
+    const isCurrentActive = selectedSessionId === activeState.activeSessionId
 
     if (isCurrentActive) {
       return {
@@ -43,7 +56,10 @@ export function useJobActions() {
       if (prevMarker) {
         to = prevMarker.startAt / 1000
       }
-    } else if (activeState && selectedSessionId !== activeState.activeSessionId) {
+    } else if (
+      activeState.activeSessionId !== "" &&
+      activeState.activeSessionId !== selectedSessionId
+    ) {
       to = activeState.activatedAt / 1000
     }
 
@@ -57,8 +73,8 @@ export function useJobActions() {
   const confirmRef = useLatestRef(confirm)
   const refetchStatsRef = useLatestRef(refetchStats)
 
-  // ── Async internals (no useCallback) ─────────────────────────────
-  const getFailedJobIdsInternal = async (): Promise<string[]> => {
+  // ── Async internals ─────────────────────────────────────────────
+  const getFailedJobIdsInternal = useCallback(async (): Promise<string[]> => {
     const params = new URLSearchParams()
     params.append("status", "error")
     params.append("status", "cancelled")
@@ -72,36 +88,41 @@ export function useJobActions() {
     params.append("limit", "999999")
 
     try {
-      const res = await fetch(`${backendUrlRef.current}/jobs?${params.toString()}`)
+      const res = await fetch(
+        `${backendUrlRef.current}/jobs?${params.toString()}`
+      )
       if (!res.ok) throw new Error("Failed to fetch failed jobs")
-      const data = await res.json()
-      return (data.items || []).map((j: unknown) => (j as { id: string }).id)
-    } catch (err) {
+      const data = (await res.json()) as { items?: { id: string }[] }
+      return (data.items ?? []).map((j) => j.id)
+    } catch (err: unknown) {
       console.warn("Failed to fetch failed job IDs:", err)
       return []
     }
-  }
+  }, [backendUrlRef, sessionRangeRef])
 
   // ── Sync callbacks (call async internals) ────────────────────────
-  const handleTogglePause = useCallback(async () => {
+  const handleTogglePause = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`${backendUrlRef.current}${pausedRef.current ? API.jobs.resume : API.jobs.pause}`, {
-        method: "POST",
-      })
+      const res = await fetch(
+        `${backendUrlRef.current}${pausedRef.current ? API.jobs.resume : API.jobs.pause}`,
+        {
+          method: "POST",
+        }
+      )
       if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
     } catch {
       toast.error("일시중지/재개 요청에 실패했습니다.")
     }
-  }, [])
+  }, [backendUrlRef, pausedRef])
 
-  const handleCancelAll = useCallback(async () => {
-    if (!(await confirmRef.current({
+  const handleCancelAll = useCallback(async (): Promise<void> => {
+    const confirmed = await confirmRef.current({
       title: "작업 취소",
       description: "진행 중인 모든 작업을 취소하시겠습니까?",
       variant: "destructive",
       confirmText: "모두 취소",
-    })))
-      return
+    })
+    if (!confirmed) return
     try {
       const res = await fetch(`${backendUrlRef.current}${API.jobs.cancelAll}`, {
         method: "POST",
@@ -110,51 +131,70 @@ export function useJobActions() {
     } catch {
       toast.error("전체 취소 요청에 실패했습니다.")
     }
-  }, [])
+  }, [backendUrlRef, confirmRef])
 
-  const handleRetryAllFailed = useCallback(async () => {
+  const handleRetryAllFailed = useCallback(async (): Promise<void> => {
     const failedIds = await getFailedJobIdsInternal()
     if (failedIds.length === 0) {
       toast.info("재시도할 실패/취소된 작업이 없습니다.")
       return
     }
-    if (!(await confirmRef.current({
+    const confirmed = await confirmRef.current({
       title: "실패 작업 재시도",
-      description: `실패/취소된 작업 ${failedIds.length}개를 모두 재시도하시겠습니까?`,
+      description: `실패/취소된 작업 ${String(failedIds.length)}개를 모두 재시도하시겠습니까?`,
       confirmText: "모두 재시도",
-    })))
-      return
+    })
+    if (!confirmed) return
     try {
-      const promises = failedIds.map((id) =>
-        fetch(`${backendUrlRef.current}${API.jobs.retry(id)}`, { method: "POST" })
+      let nextIndex = 0
+      let successCount = 0
+      const workerCount = Math.min(8, failedIds.length)
+      await Promise.all(
+        Array.from({ length: workerCount }, async () => {
+          while (nextIndex < failedIds.length) {
+            const id = failedIds[nextIndex++]
+            if (id === undefined) continue
+            try {
+              const response = await fetch(
+                `${backendUrlRef.current}${API.jobs.retry(id)}`,
+                { method: "POST" }
+              )
+              if (response.ok) successCount += 1
+            } catch {
+              // Count the request as failed and continue retrying the batch.
+            }
+          }
+        })
       )
-      const results = await Promise.all(promises)
-      const successCount = results.filter((r) => r.ok).length
       if (successCount === failedIds.length) {
-        toast.success(`실패/취소된 작업 ${successCount}개를 재시도했습니다.`)
+        toast.success(
+          `실패/취소된 작업 ${String(successCount)}개를 재시도했습니다.`
+        )
       } else {
-        toast.warning(`작업 일부 재시도 실패 (${successCount}/${failedIds.length} 성공)`)
+        toast.warning(
+          `작업 일부 재시도 실패 (${String(successCount)}/${String(failedIds.length)} 성공)`
+        )
       }
-      refetchStatsRef.current?.()
+      refetchStatsRef.current()
       window.dispatchEvent(new CustomEvent("ceg-refetch-jobs"))
     } catch {
       toast.error("작업 재시도 요청에 실패했습니다.")
     }
-  }, [])
+  }, [backendUrlRef, confirmRef, refetchStatsRef, getFailedJobIdsInternal])
 
-  const handleDeleteAllFailed = useCallback(async () => {
+  const handleDeleteAllFailed = useCallback(async (): Promise<void> => {
     const failedIds = await getFailedJobIdsInternal()
     if (failedIds.length === 0) {
       toast.info("삭제할 실패/취소된 작업이 없습니다.")
       return
     }
-    if (!(await confirmRef.current({
+    const confirmed = await confirmRef.current({
       title: "실패 작업 삭제",
-      description: `실패/취소된 작업 ${failedIds.length}개를 모두 영구 삭제하시겠습니까?`,
+      description: `실패/취소된 작업 ${String(failedIds.length)}개를 모두 영구 삭제하시겠습니까?`,
       variant: "destructive",
       confirmText: "모두 삭제",
-    })))
-      return
+    })
+    if (!confirmed) return
     try {
       const res = await fetch(`${backendUrlRef.current}${API.jobs.delete}`, {
         method: "POST",
@@ -163,22 +203,25 @@ export function useJobActions() {
       })
       if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
       toast.success("실패/취소된 작업을 모두 삭제했습니다.")
-      refetchStatsRef.current?.()
+      refetchStatsRef.current()
       window.dispatchEvent(new CustomEvent("ceg-refetch-jobs"))
     } catch {
       toast.error("실패 작업 삭제 요청에 실패했습니다.")
     }
-  }, [])
+  }, [backendUrlRef, confirmRef, refetchStatsRef, getFailedJobIdsInternal])
 
-  return useMemo(() => ({
-    handleTogglePause,
-    handleCancelAll,
-    handleRetryAllFailed,
-    handleDeleteAllFailed,
-  }), [
-    handleTogglePause,
-    handleCancelAll,
-    handleRetryAllFailed,
-    handleDeleteAllFailed,
-  ])
+  return useMemo(
+    () => ({
+      handleTogglePause,
+      handleCancelAll,
+      handleRetryAllFailed,
+      handleDeleteAllFailed,
+    }),
+    [
+      handleTogglePause,
+      handleCancelAll,
+      handleRetryAllFailed,
+      handleDeleteAllFailed,
+    ]
+  )
 }

@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import { useEffectLog } from "@/lib/renderLogger"
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { API, HEADERS, DEFAULT_DOWNLOAD_FILENAME } from "@/lib/api"
+import { triggerBlobDownload } from "../utils/downloadImages"
 import type {
   AssetGroup,
   BackendEvent,
@@ -75,7 +76,15 @@ export const useSavedImages = (
   const [error, setError] = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
-  const urlToUse = backendUrl || DEFAULT_BACKEND_URL
+  const groupImagesAbortRef = useRef<AbortController | null>(null)
+  const urlToUse = backendUrl ?? DEFAULT_BACKEND_URL
+
+  useEffect(() => {
+    return (): void => {
+      abortRef.current?.abort()
+      groupImagesAbortRef.current?.abort()
+    }
+  }, [])
 
   // ── Refs for latest values ────────────────────────────────────────
   const groupModeRef = useLatestRef(groupMode)
@@ -89,128 +98,190 @@ export const useSavedImages = (
   const groupPageSizeRef = useLatestRef(groupPageSize)
   const groupTotalRef = useLatestRef(groupTotal)
 
-  // ── Async internals (no useCallback) ─────────────────────────────
-  const fetchImagesInternal = async (silent = false) => {
-    if (groupModeRef.current) return
-    abortRef.current?.abort()
-    const ac = new AbortController()
-    abortRef.current = ac
-    if (!silent) setLoading(true)
-    setError(null)
-    try {
-      const offset = Math.max(0, (pageRef.current - 1) * pageSizeRef.current)
-      const params = new URLSearchParams({
-        limit: String(pageSizeRef.current),
-        offset: String(offset),
-      })
-      if (statusRef.current && statusRef.current !== "all") params.set("status", statusRef.current)
-      if (filenameRef.current) params.set("filename", filenameRef.current)
-      if (tagRef.current) params.set("tag", tagRef.current)
-      const res = await fetch(`${urlToUseRef.current}${API.savedImages.root}?${params}`, {
-        signal: ac.signal,
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as {
-        items: SavedImage[]
-        total?: number
-      }
-      setImages(data.items)
-      setTotal(typeof data.total === "number" ? data.total : data.items.length)
-    } catch (err) {
-      if ((err as Error).name === "AbortError") return
-      setError((err as Error).message)
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }
-
-  const fetchGroupsInternal = async (silent = false) => {
-    if (!groupModeRef.current) return
-    abortRef.current?.abort()
-    const ac = new AbortController()
-    abortRef.current = ac
-    if (!silent) setLoading(true)
-    setError(null)
-    try {
-      const offset = Math.max(0, (groupPageRef.current - 1) * groupPageSizeRef.current)
-      const params = new URLSearchParams({
-        limit: String(groupPageSizeRef.current),
-        offset: String(offset),
-        sort: "latest",
-      })
-      const res = await fetch(`${urlToUseRef.current}${API.assetGroups.root}?${params}`, {
-        signal: ac.signal,
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as {
-        groups: AssetGroup[]
-        limit: number
-        offset: number
-      }
-      setGroups(data.groups)
-
-      // 전체 그룹 수 추정: 현재 페이지가 마지막이 아니면 대략적인 total 사용
-      // 마지막 페이지면 offset + 받은 개수
-      if (data.groups.length < groupPageSizeRef.current) {
-        setGroupTotal(offset + data.groups.length)
-      } else {
-        // 다음 페이지가 있을 수 있으므로 여유 있게
-        setGroupTotal(Math.max(groupTotalRef.current, offset + data.groups.length + 1))
-      }
-    } catch (err) {
-      if ((err as Error).name === "AbortError") return
-      setError((err as Error).message)
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }
-
-  const fetchGroupImagesInternal = async (
-    filenames: string[],
-    currentStatus: CurationStatus | "all" | undefined
-  ) => {
-    if (!groupModeRef.current || filenames.length === 0) return
-    const newMap = new Map<string, SavedImage[]>()
-    const statusParam =
-      currentStatus && currentStatus !== "all"
-        ? `?status=${currentStatus}`
-        : ""
-    const fetches = filenames.map(async (fn) => {
+  // ── Async internals (useCallback) ─────────────────────────────
+  const fetchImagesInternal = useCallback(
+    async (silent?: boolean): Promise<void> => {
+      if (groupModeRef.current) return
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+      if (silent !== true) setLoading(true)
+      setError(null)
       try {
+        const offset = Math.max(0, (pageRef.current - 1) * pageSizeRef.current)
+        const params = new URLSearchParams({
+          limit: String(pageSizeRef.current),
+          offset: String(offset),
+        })
+        if (statusRef.current && statusRef.current !== "all")
+          params.set("status", statusRef.current)
+        if (filenameRef.current !== undefined && filenameRef.current !== "")
+          params.set("filename", filenameRef.current)
+        if (tagRef.current !== undefined && tagRef.current !== "")
+          params.set("tag", tagRef.current)
         const res = await fetch(
-          `${urlToUseRef.current}${API.assetGroups.detail(fn)}${statusParam}`
+          `${urlToUseRef.current}${API.savedImages.root}?${params.toString()}`,
+          {
+            signal: ac.signal,
+          }
         )
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
         const data = (await res.json()) as {
-          filename: string
           items: SavedImage[]
+          total?: number
         }
-        newMap.set(fn, data.items)
+        if (ac.signal.aborted) return
+        setImages(data.items)
+        setGroups((prev) => (prev.length === 0 ? prev : []))
+        setGroupImagesMap((prev) => (prev.size === 0 ? prev : new Map()))
+        setGroupTotal(0)
+        setTotal(
+          typeof data.total === "number" ? data.total : data.items.length
+        )
       } catch (err) {
-        console.error(`fetch group images failed for ${fn}`, err)
-        toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
-        newMap.set(fn, [])
+        if ((err as Error).name === "AbortError") return
+        setError((err as Error).message)
+      } finally {
+        if (abortRef.current === ac && silent !== true) setLoading(false)
       }
-    })
-    await Promise.all(fetches)
-    setGroupImagesMap(newMap)
-  }
+    },
+    [
+      groupModeRef,
+      abortRef,
+      pageRef,
+      pageSizeRef,
+      statusRef,
+      filenameRef,
+      tagRef,
+      urlToUseRef,
+    ]
+  )
+
+  const fetchGroupsInternal = useCallback(
+    async (silent?: boolean): Promise<void> => {
+      if (!groupModeRef.current) return
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+      if (silent !== true) setLoading(true)
+      setError(null)
+      try {
+        const offset = Math.max(
+          0,
+          (groupPageRef.current - 1) * groupPageSizeRef.current
+        )
+        const params = new URLSearchParams({
+          limit: String(groupPageSizeRef.current),
+          offset: String(offset),
+          sort: "latest",
+        })
+        const res = await fetch(
+          `${urlToUseRef.current}${API.assetGroups.root}?${params.toString()}`,
+          {
+            signal: ac.signal,
+          }
+        )
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+        const data = (await res.json()) as {
+          groups: AssetGroup[]
+          limit: number
+          offset: number
+        }
+        if (ac.signal.aborted) return
+        setGroups(data.groups)
+        setImages((prev) => (prev.length === 0 ? prev : []))
+        setTotal(0)
+
+        // 전체 그룹 수 추정: 현재 페이지가 마지막이 아니면 대략적인 total 사용
+        // 마지막 페이지면 offset + 받은 개수
+        if (data.groups.length < groupPageSizeRef.current) {
+          setGroupTotal(offset + data.groups.length)
+        } else {
+          // 다음 페이지가 있을 수 있으므로 여유 있게
+          setGroupTotal(
+            Math.max(groupTotalRef.current, offset + data.groups.length + 1)
+          )
+        }
+      } catch (err: unknown) {
+        if ((err as Error).name === "AbortError") return
+        setError((err as Error).message)
+      } finally {
+        if (abortRef.current === ac && silent !== true) setLoading(false)
+      }
+    },
+    [
+      groupModeRef,
+      abortRef,
+      groupPageRef,
+      groupPageSizeRef,
+      urlToUseRef,
+      groupTotalRef,
+    ]
+  )
+
+  const fetchGroupImagesInternal = useCallback(
+    async (
+      filenames: string[],
+      currentStatus: CurationStatus | "all" | undefined
+    ): Promise<void> => {
+      if (!groupModeRef.current || filenames.length === 0) return
+      groupImagesAbortRef.current?.abort()
+      const ac = new AbortController()
+      groupImagesAbortRef.current = ac
+      const newMap = new Map<string, SavedImage[]>()
+      const statusParam =
+        currentStatus && currentStatus !== "all"
+          ? `?status=${currentStatus}`
+          : ""
+      let nextIndex = 0
+      const workerCount = Math.min(4, filenames.length)
+      await Promise.all(
+        Array.from({ length: workerCount }, async () => {
+          while (nextIndex < filenames.length) {
+            const fn = filenames[nextIndex++]
+            if (fn === undefined) continue
+            try {
+              const res = await fetch(
+                `${urlToUseRef.current}${API.assetGroups.detail(fn)}${statusParam}`,
+                { signal: ac.signal }
+              )
+              if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+              const data = (await res.json()) as {
+                filename: string
+                items: SavedImage[]
+              }
+              newMap.set(fn, data.items)
+            } catch (err) {
+              if ((err as Error).name === "AbortError") return
+              console.error(`fetch group images failed for ${fn}`, err)
+              toast.warning(`그룹 이미지 불러오기 실패: ${fn}`)
+              newMap.set(fn, [])
+            }
+          }
+        })
+      )
+      if (!ac.signal.aborted) setGroupImagesMap(newMap)
+    },
+    [groupModeRef, groupImagesAbortRef, urlToUseRef]
+  )
 
   // ── Sync callbacks (call async internals) ────────────────────────
   const fetchImages = useCallback(
-    (silent = false) => fetchImagesInternal(silent),
-    []
+    (silent?: boolean): Promise<void> => fetchImagesInternal(silent),
+    [fetchImagesInternal]
   )
 
   const fetchGroups = useCallback(
-    (silent = false) => fetchGroupsInternal(silent),
-    []
+    (silent?: boolean): Promise<void> => fetchGroupsInternal(silent),
+    [fetchGroupsInternal]
   )
 
   const fetchGroupImages = useCallback(
-    (filenames: string[], currentStatus: CurationStatus | "all" | undefined) =>
-      fetchGroupImagesInternal(filenames, currentStatus),
-    []
+    (
+      filenames: string[],
+      currentStatus: CurationStatus | "all" | undefined
+    ): Promise<void> => fetchGroupImagesInternal(filenames, currentStatus),
+    [fetchGroupImagesInternal]
   )
 
   // ──── 메인 effect ────
@@ -218,29 +289,51 @@ export const useSavedImages = (
     "이미지 fetch",
     () => {
       if (groupMode) {
-        fetchGroups(false)
+        void fetchGroups(false)
       } else {
-        fetchImages(false)
+        groupImagesAbortRef.current?.abort()
+        groupImagesAbortRef.current = null
+        void fetchImages(false)
       }
     },
-    [fetchImages, fetchGroups, groupMode]
+    [
+      fetchImages,
+      fetchGroups,
+      groupMode,
+      status,
+      filename,
+      tag,
+      page,
+      pageSize,
+      groupPage,
+      groupPageSize,
+      groupImagesAbortRef,
+    ]
   )
 
   // 그룹 목록이 바뀌면 이미지 fetch
   // (fetchGroupImages는 내부적으로 setState를 호출하는 비동기 함수)
-  useEffect(() => {
+  useEffect((): (() => void) | undefined => {
     if (groupMode && groups.length > 0) {
       const filenames = groups.map((g) => g.filename)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchGroupImages(filenames, status)
+
+      void fetchGroupImages(filenames, status)
     } else if (groups.length === 0) {
-      setGroupImagesMap(new Map())
+      groupImagesAbortRef.current?.abort()
+      groupImagesAbortRef.current = null
+      const timer = window.setTimeout(() => {
+        setGroupImagesMap(new Map())
+      }, 0)
+      return () => {
+        window.clearTimeout(timer)
+      }
     }
+    return undefined
   }, [groups, groupMode, fetchGroupImages, status])
 
   // ──── Global WebSocket 이벤트를 ceg-image-event를 통해 수신 → 백그라운드 silent 갱신 ────
-  useEffect(() => {
-    const handleImageEvent = (e: Event) => {
+  useEffect((): (() => void) | undefined => {
+    const handleImageEvent = (e: Event): void => {
       const event = (e as CustomEvent).detail as BackendEvent
       if (
         event.type === "image.saved" ||
@@ -248,9 +341,9 @@ export const useSavedImages = (
         event.type === "image.deleted"
       ) {
         if (groupMode) {
-          fetchGroups(true)
+          void fetchGroups(true)
         } else {
-          fetchImages(true)
+          void fetchImages(true)
         }
       }
     }
@@ -300,7 +393,19 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ status }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+  },
+  async patchMeta(
+    backendUrl: string,
+    hash: string,
+    meta: Record<string, string>
+  ): Promise<void> {
+    const res = await fetch(`${backendUrl}${API.savedImages.detail(hash)}`, {
+      method: "PATCH",
+      headers: HEADERS.json,
+      body: JSON.stringify({ meta }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async patchNote(
     backendUrl: string,
@@ -312,7 +417,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ note }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async addTags(
     backendUrl: string,
@@ -324,7 +429,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ tags }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async removeTag(
     backendUrl: string,
@@ -334,19 +439,19 @@ export const curationApi = {
     const res = await fetch(`${backendUrl}${API.savedImages.tag(hash, tag)}`, {
       method: "DELETE",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async restore(backendUrl: string, hash: string): Promise<void> {
     const res = await fetch(`${backendUrl}${API.savedImages.restore(hash)}`, {
       method: "POST",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
   },
   async emptyTrash(backendUrl: string): Promise<number> {
     const res = await fetch(`${backendUrl}${API.trash.empty}`, {
       method: "POST",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const data = (await res.json()) as { deleted: number }
     return data.deleted
   },
@@ -355,6 +460,7 @@ export const curationApi = {
     body: {
       status?: CurationStatus
       filenames?: string[]
+      hashes?: string[]
       tags?: string[]
       duplicateStrategy?: "hash" | "number"
     }
@@ -364,16 +470,9 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify(body),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = DEFAULT_DOWNLOAD_FILENAME
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    triggerBlobDownload(blob, DEFAULT_DOWNLOAD_FILENAME)
   },
   async bulkAutoTags(
     backendUrl: string,
@@ -385,7 +484,7 @@ export const curationApi = {
       headers: HEADERS.json,
       body: JSON.stringify({ hashes }),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const data = (await res.json()) as { results: Record<string, string[]> }
     return data.results
   },
@@ -396,7 +495,7 @@ export const curationApi = {
     const res = await fetch(`${cleanUrl}/saved-images/auto-tags/empty`, {
       method: "POST",
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const data = (await res.json()) as { results: Record<string, string[]> }
     return data.results
   },

@@ -6,6 +6,7 @@ statement: set_stmt
          | axis_def
          | combine_stmt
          | exclude_stmt
+         | override_block
          | template_block
          | filename_block
          | comment
@@ -14,7 +15,8 @@ set_stmt: "{{set" NAME "=" STRING "}}"
 
 axis_def: "{{axis" NAME OPTIONAL? axis_include? "}}" axis_entry* "{{/axis}}"
 axis_include: "include=" STRING
-axis_entry: NAME ":" axis_value
+axis_entry: NAME axis_file_key? ":" axis_value
+axis_file_key: AS STRING
 axis_value: STRING
           | "{" [axis_property ("," axis_property)* [","]] "}"
 axis_property: NAME ":" STRING
@@ -32,10 +34,13 @@ combine_assignment: NAME "=" expr
        | "(" expr ")"
 
 exclude_stmt: "{{exclude" condition ((AND | OR) condition)* "}}"
-condition: eq_condition | in_condition | not_in_condition
+condition: eq_condition | in_condition | not_in_condition | has_condition
 eq_condition: NAME "=" NAME
 in_condition: NAME "in" "[" NAME ("," NAME)* "]"
 not_in_condition: NAME "not" "in" "[" NAME ("," NAME)* "]"
+has_condition: NAME
+
+override_block: "{{override" condition ((AND | OR) condition)* "}}" OVERRIDE_BODY "{{/override}}"
 
 template_block: "{{template}}" TEMPLATE_BODY "{{/template}}"
 filename_block: "{{filename}}" TEMPLATE_BODY "{{/filename}}"
@@ -44,14 +49,18 @@ comment: "{{#" COMMENT_BODY "#}}"
 
 // 터미널 정의 (AND/OR는 NAME보다 먼저 정의하여 우선권 부여)
 OPTIONAL: "?"
+AS: "as"
 AND: "AND"
 OR: "OR"
-NAME: /[a-zA-Z_\-][a-zA-Z0-9_\-]*/
+NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
 STRING: /"(?:[^"\\]|\\.)*"/
 INT: /[0-9]+/
 
 // 템플릿 본문: {{/template}} 또는 {{/filename}} 이 나올 때까지 전부
 TEMPLATE_BODY: /(?:(?!\{\{\/(?:template|filename)\}\}).)+/s
+
+// 오버라이드 본문: {{/override}} 가 나올 때까지 전부
+OVERRIDE_BODY: /(?:(?!\{\{\/override\}\}).)+/s
 
 // 주석 본문: #}} 가 나올 때까지
 COMMENT_BODY: /(?:(?!#\}\}).)+/s

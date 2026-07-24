@@ -8,10 +8,12 @@ export const API = {
   jobs: {
     root: "/jobs",
     detail: (id: string) => `/jobs/${id}`,
+    cancel: (id: string) => `/jobs/${id}`,
     pause: "/jobs/pause",
     resume: "/jobs/resume",
     retry: (id: string) => `/jobs/${id}/retry`,
     move: (id: string) => `/jobs/${id}/move`,
+    updatePendingTemplate: "/jobs/update-pending-template",
     cancelAll: "/jobs/cancel-all",
     delete: "/jobs/delete",
     savedImages: (id: string) => `/jobs/${id}/saved-images`,

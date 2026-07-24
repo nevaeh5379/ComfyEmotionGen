@@ -33,7 +33,9 @@ function Badge({
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> &
-  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+  VariantProps<typeof badgeVariants> & {
+    asChild?: boolean
+  }): React.JSX.Element {
   const Comp = asChild ? Slot.Root : "span"
 
   return (
@@ -46,5 +48,4 @@ function Badge({
   )
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export { Badge, badgeVariants }
+export { Badge }

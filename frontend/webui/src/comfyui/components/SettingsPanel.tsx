@@ -21,6 +21,7 @@ import { IS_PACKAGE_MODE, DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import type { AppSettings } from "../hooks/useSettings"
 import { WorkerManager } from "./WorkerManager"
 import { WebhookSettingsPanel } from "./WebhookSettingsPanel"
+import { FilenameMigrationTool } from "./FilenameMigrationTool"
 import type { WorkerView } from "../types/Message"
 import { BUNDLE_VERSION, COMMIT, IS_LOCAL_DEV } from "@/version"
 import { useUpdateCheck } from "@/comfyui/hooks/useUpdateCheck"
@@ -31,6 +32,7 @@ import type { SavedTemplate } from "@/comfyui/hooks/useSavedTemplates"
 import type { SavedWorkflow } from "@/comfyui/hooks/useSavedWorkflows"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { toast } from "sonner"
+import { triggerBlobDownload } from "../utils/downloadImages"
 
 interface Props {
   settings: AppSettings
@@ -49,7 +51,7 @@ function Section({
 }: {
   title: string
   children: React.ReactNode
-}) {
+}): React.JSX.Element {
   return (
     <section className="space-y-1">
       <h3 className="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -68,12 +70,12 @@ function SettingRow({
   label: string
   description?: string
   children: React.ReactNode
-}) {
+}): React.JSX.Element {
   return (
     <div className="flex items-start justify-between gap-6 py-4">
       <div className="flex-1 space-y-0.5">
         <p className="text-sm font-medium">{label}</p>
-        {description && (
+        {description !== undefined && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </div>
@@ -88,7 +90,7 @@ export function SettingsPanel({
   backendUrl,
   onBackendUrlChange,
   workers,
-}: Props) {
+}: Props): React.JSX.Element {
   const template = useTemplateContext()
   const workflow = useWorkflowContext()
   const update = useUpdateCheck(settings.updateChannel)
@@ -106,11 +108,11 @@ export function SettingsPanel({
           </div>
           <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground/60">
             {IS_LOCAL_DEV ? (
-              <span className="mono">{COMMIT || "dev"}</span>
+              <span className="mono">{COMMIT ?? "dev"}</span>
             ) : (
               <>
                 <span className="mono">{BUNDLE_VERSION}</span>
-                {COMMIT && !BUNDLE_VERSION.includes(COMMIT) && (
+                {COMMIT !== null && !BUNDLE_VERSION.includes(COMMIT) && (
                   <span className="mono rounded bg-muted px-1.5 py-0.5">
                     {COMMIT.slice(0, 7)}
                   </span>
@@ -138,16 +140,16 @@ export function SettingsPanel({
               description={
                 IS_PACKAGE_MODE
                   ? "포터블 모드: 런처가 할당한 백엔드 포트에 자동 연결됩니다."
-                  : "CEG 백엔드 서버 주소입니다. (예: http://localhost:8000)"
+                  : "CEG 백엔드 서버 주소입니다. (예: http://localhost:5882)"
               }
             >
               <Input
                 type="url"
                 placeholder={DEFAULT_BACKEND_URL}
                 value={backendUrl}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   onBackendUrlChange(e.target.value)
-                }
+                }}
                 onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                   const v = e.target.value.trim()
                   if (!v) {
@@ -166,7 +168,8 @@ export function SettingsPanel({
             <div className="mb-1 space-y-0.5">
               <p className="text-sm font-medium">워커</p>
               <p className="text-sm text-muted-foreground">
-                이미지 생성 백엔드를 추가하면 작업이 idle 워커에 자동 분배됩니다.
+                이미지 생성 백엔드를 추가하면 작업이 idle 워커에 자동
+                분배됩니다.
               </p>
             </div>
             <div className="mt-3">
@@ -184,12 +187,12 @@ export function SettingsPanel({
             >
               <Select
                 value={String(settings.imagePageSize)}
-                onValueChange={(v) =>
+                onValueChange={(v) => {
                   updateSetting(
                     "imagePageSize",
                     Number(v) as AppSettings["imagePageSize"]
                   )
-                }
+                }}
               >
                 <SelectTrigger className="h-8 w-36 text-sm">
                   <SelectValue />
@@ -208,9 +211,9 @@ export function SettingsPanel({
             >
               <Switch
                 checked={settings.imageLazyLoad}
-                onCheckedChange={(v) =>
-                  updateSetting("imageLazyLoad", v === true)
-                }
+                onCheckedChange={(v) => {
+                  updateSetting("imageLazyLoad", v)
+                }}
               />
             </SettingRow>
           </div>
@@ -224,9 +227,9 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.autoApplyReject}
-              onCheckedChange={(v) =>
-                updateSetting("autoApplyReject", v === true)
-              }
+              onCheckedChange={(v) => {
+                updateSetting("autoApplyReject", v)
+              }}
             />
           </SettingRow>
           <Separator />
@@ -236,9 +239,9 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.hideEmptyCurationFolders}
-              onCheckedChange={(v) =>
-                updateSetting("hideEmptyCurationFolders", v === true)
-              }
+              onCheckedChange={(v) => {
+                updateSetting("hideEmptyCurationFolders", v)
+              }}
             />
           </SettingRow>
           <Separator />
@@ -248,12 +251,12 @@ export function SettingsPanel({
           >
             <Select
               value={settings.galleryExportScope}
-              onValueChange={(v) =>
+              onValueChange={(v) => {
                 updateSetting(
                   "galleryExportScope",
                   v as AppSettings["galleryExportScope"]
                 )
-              }
+              }}
             >
               <SelectTrigger className="h-8 w-44 text-sm">
                 <SelectValue />
@@ -271,12 +274,12 @@ export function SettingsPanel({
           >
             <Select
               value={settings.galleryExportStrategy}
-              onValueChange={(v) =>
+              onValueChange={(v) => {
                 updateSetting(
                   "galleryExportStrategy",
                   v as AppSettings["galleryExportStrategy"]
                 )
-              }
+              }}
             >
               <SelectTrigger className="h-8 w-44 text-sm">
                 <SelectValue />
@@ -294,12 +297,12 @@ export function SettingsPanel({
           >
             <Select
               value={settings.singleDownloadMode}
-              onValueChange={(v) =>
+              onValueChange={(v) => {
                 updateSetting(
                   "singleDownloadMode",
                   v as AppSettings["singleDownloadMode"]
                 )
-              }
+              }}
             >
               <SelectTrigger className="h-8 w-44 text-sm">
                 <SelectValue />
@@ -324,12 +327,12 @@ export function SettingsPanel({
           >
             <Select
               value={settings.updateChannel}
-              onValueChange={(v) =>
+              onValueChange={(v) => {
                 updateSetting(
                   "updateChannel",
                   v as AppSettings["updateChannel"]
                 )
-              }
+              }}
               disabled={IS_LOCAL_DEV}
             >
               <SelectTrigger className="h-8 w-36 text-sm">
@@ -353,12 +356,12 @@ export function SettingsPanel({
           >
             <Select
               value={settings.progressCalculation}
-              onValueChange={(v) =>
+              onValueChange={(v) => {
                 updateSetting(
                   "progressCalculation",
                   v as AppSettings["progressCalculation"]
                 )
-              }
+              }}
             >
               <SelectTrigger className="h-8 w-52 text-sm">
                 <SelectValue />
@@ -382,9 +385,9 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.cycleMinimizedProgress}
-              onCheckedChange={(v) =>
-                updateSetting("cycleMinimizedProgress", v === true)
-              }
+              onCheckedChange={(v) => {
+                updateSetting("cycleMinimizedProgress", v)
+              }}
             />
           </SettingRow>
         </Section>
@@ -397,7 +400,9 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.enableHover}
-              onCheckedChange={(v) => updateSetting("enableHover", v === true)}
+              onCheckedChange={(v) => {
+                updateSetting("enableHover", v)
+              }}
             />
           </SettingRow>
           <Separator />
@@ -407,9 +412,9 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.useWindowMode}
-              onCheckedChange={(v) =>
-                updateSetting("useWindowMode", v === true)
-              }
+              onCheckedChange={(v) => {
+                updateSetting("useWindowMode", v)
+              }}
             />
           </SettingRow>
           <Separator />
@@ -419,9 +424,9 @@ export function SettingsPanel({
           >
             <Switch
               checked={settings.fluidGridLayout}
-              onCheckedChange={(v) =>
-                updateSetting("fluidGridLayout", v === true)
-              }
+              onCheckedChange={(v) => {
+                updateSetting("fluidGridLayout", v)
+              }}
             />
           </SettingRow>
         </Section>
@@ -467,12 +472,10 @@ export function SettingsPanel({
                     const blob = new Blob([JSON.stringify(data, null, 2)], {
                       type: "application/json",
                     })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = `templates_${new Date().toISOString().slice(0, 10)}.json`
-                    a.click()
-                    URL.revokeObjectURL(url)
+                    triggerBlobDownload(
+                      blob,
+                      `templates_${new Date().toISOString().slice(0, 10)}.json`
+                    )
                     toast.success("템플릿 내보내기가 완료되었습니다.")
                   }}
                   className="h-8 text-xs transition-transform active:scale-95"
@@ -487,13 +490,15 @@ export function SettingsPanel({
                     const input = document.createElement("input")
                     input.type = "file"
                     input.accept = ".json"
-                    input.onchange = () => {
+                    input.onchange = (): void => {
                       const target = input.files?.[0]
                       if (!target) return
                       const reader = new FileReader()
-                      reader.onload = () => {
+                      reader.onload = (): void => {
                         try {
-                          const imported = JSON.parse(reader.result as string)
+                          const imported = JSON.parse(
+                            reader.result as string
+                          ) as unknown[]
                           if (!Array.isArray(imported)) {
                             toast.error("유효한 템플릿 파일이 아닙니다.")
                             return
@@ -503,8 +508,14 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: `${now + Math.random().toString(36).slice(2, 7)}`,
-                                name: (p.name as string) || "미명 템플릿",
+                                id:
+                                  String(now) +
+                                  "-" +
+                                  Math.random().toString(36).slice(2, 7),
+                                name:
+                                  typeof p.name === "string" && p.name !== ""
+                                    ? p.name
+                                    : "미명 템플릿",
                                 template: (p.template as string) || "",
                                 savedAt: (p.savedAt as number) || now,
                               }
@@ -514,7 +525,7 @@ export function SettingsPanel({
                           const merged = [...existing, ...newTemplates]
                           persistTemplates(merged)
                           toast.success(
-                            `${newTemplates.length}개의 템플릿을 가져왔습니다.`
+                            `${String(newTemplates.length)}개의 템플릿을 가져왔습니다.`
                           )
                         } catch {
                           toast.error("파일을 읽는 중 오류가 발생했습니다.")
@@ -566,12 +577,10 @@ export function SettingsPanel({
                     const blob = new Blob([JSON.stringify(data, null, 2)], {
                       type: "application/json",
                     })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = `workflows_${new Date().toISOString().slice(0, 10)}.json`
-                    a.click()
-                    URL.revokeObjectURL(url)
+                    triggerBlobDownload(
+                      blob,
+                      `workflows_${new Date().toISOString().slice(0, 10)}.json`
+                    )
                     toast.success("워크플로우 내보내기가 완료되었습니다.")
                   }}
                   className="h-8 text-xs transition-transform active:scale-95"
@@ -586,13 +595,15 @@ export function SettingsPanel({
                     const input = document.createElement("input")
                     input.type = "file"
                     input.accept = ".json"
-                    input.onchange = () => {
+                    input.onchange = (): void => {
                       const target = input.files?.[0]
                       if (!target) return
                       const reader = new FileReader()
-                      reader.onload = () => {
+                      reader.onload = (): void => {
                         try {
-                          const imported = JSON.parse(reader.result as string)
+                          const imported = JSON.parse(
+                            reader.result as string
+                          ) as unknown[]
                           if (!Array.isArray(imported)) {
                             toast.error("유효한 워크플로우 파일이 아닙니다.")
                             return
@@ -602,12 +613,21 @@ export function SettingsPanel({
                             (item: unknown) => {
                               const p = item as Record<string, unknown>
                               return {
-                                id: `${now + Math.random().toString(36).slice(2, 7)}`,
-                                name: (p.name as string) || "미명 워크플로우",
-                                workflow: (p.workflow as string) || "",
-                                mappingPresets:
-                                  (p.mappingPresets as SavedWorkflow["mappingPresets"]) ||
-                                  [],
+                                id:
+                                  String(now) +
+                                  "-" +
+                                  Math.random().toString(36).slice(2, 7),
+                                name:
+                                  typeof p.name === "string" && p.name !== ""
+                                    ? p.name
+                                    : "미명 워크플로우",
+                                workflow:
+                                  typeof p.workflow === "string"
+                                    ? p.workflow
+                                    : "",
+                                mappingPresets: Array.isArray(p.mappingPresets)
+                                  ? (p.mappingPresets as SavedWorkflow["mappingPresets"])
+                                  : [],
                                 savedAt: (p.savedAt as number) || now,
                               }
                             }
@@ -616,7 +636,7 @@ export function SettingsPanel({
                           const merged = [...existing, ...newWorkflows]
                           persistWorkflows(merged)
                           toast.success(
-                            `${newWorkflows.length}개의 워크플로우를 가져왔습니다.`
+                            `${String(newWorkflows.length)}개의 워크플로우를 가져왔습니다.`
                           )
                         } catch {
                           toast.error("파일을 읽는 중 오류가 발생했습니다.")
@@ -680,7 +700,7 @@ export function SettingsPanel({
                     const input = document.createElement("input")
                     input.type = "file"
                     input.accept = ".db"
-                    input.onchange = () => {
+                    input.onchange = (): void => {
                       const target = input.files?.[0]
                       if (!target) return
 
@@ -699,7 +719,7 @@ export function SettingsPanel({
                           const errText = await res.text()
                           throw new Error(errText || "데이터베이스 복원 실패")
                         }
-                        return res.json()
+                        return res.json() as Promise<unknown>
                       })
 
                       toast.promise(importPromise, {
@@ -707,8 +727,8 @@ export function SettingsPanel({
                           "데이터베이스를 서버에 업로드하고 복원하는 중...",
                         success:
                           "데이터베이스가 성공적으로 복원되고 UI가 동기화되었습니다.",
-                        error: (err) =>
-                          `데이터베이스 복원 실패: ${err.message || err}`,
+                        error: (err: unknown) =>
+                          `데이터베이스 복원 실패: ${err instanceof Error ? err.message : String(err)}`,
                       })
                     }
                     input.click()
@@ -720,6 +740,8 @@ export function SettingsPanel({
                 </Button>
               </div>
             </div>
+
+            <FilenameMigrationTool backendUrl={backendUrl} />
           </div>
         </Section>
       </div>
@@ -745,7 +767,11 @@ function persistTemplates(templates: SavedTemplate[]): void {
     // ignore quota errors
   }
   // 서버 비동기 저장
-  saveSetting(STORAGE_KEYS.savedTemplates, serialized).catch(() => {})
+  saveSetting(STORAGE_KEYS.savedTemplates, serialized).catch(
+    (_err: unknown) => {
+      void _err
+    }
+  )
   // 로컬 탭 즉시 동기화
   window.dispatchEvent(
     new StorageEvent("storage", {
@@ -773,7 +799,11 @@ function persistWorkflows(workflows: SavedWorkflow[]): void {
     // ignore quota errors
   }
   // 서버 비동기 저장
-  saveSetting(STORAGE_KEYS.savedWorkflows, serialized).catch(() => {})
+  saveSetting(STORAGE_KEYS.savedWorkflows, serialized).catch(
+    (_err: unknown) => {
+      void _err
+    }
+  )
   // 로컬 탭 즉시 동기화
   window.dispatchEvent(
     new StorageEvent("storage", {

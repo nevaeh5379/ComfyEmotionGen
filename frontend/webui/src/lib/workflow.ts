@@ -67,6 +67,7 @@ export type ComfyWorkflow = z.infer<typeof ComfyWorkflowSchema>
 export type MappingSourceType =
   | "prompt"
   | "filename"
+  | "slot"
   | "seed"
   | "image"
   | "fixed"
@@ -80,4 +81,5 @@ export interface NodeMapping {
   seedRandom?: boolean
   fixedValue?: string
   imageValue?: string
+  slotKey?: string
 }

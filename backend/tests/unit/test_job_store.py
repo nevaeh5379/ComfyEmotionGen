@@ -122,6 +122,24 @@ class TestJobs:
         assert loaded[0]["_workflow"] == {"5": {"class_type": "CLIPTextEncode"}}
         assert loaded[0]["meta"] == {"seed": 42}
 
+    async def test_save_many_with_created_events(self, tmp_store: JobStore) -> None:
+        jobs = [
+            _make_job(id="j1", filename="cat.png", prompt="cat"),
+            _make_job(id="j2", filename="dog.png", prompt="dog"),
+        ]
+        await tmp_store.save_many_with_created_events(jobs)
+
+        loaded = await tmp_store.load_all()
+        assert {job["id"] for job in loaded} == {"j1", "j2"}
+
+        events_j1 = await tmp_store.get_job_events("j1")
+        events_j2 = await tmp_store.get_job_events("j2")
+        assert len(events_j1) == 1
+        assert len(events_j2) == 1
+        assert events_j1[0]["eventType"] == "created"
+        assert events_j1[0]["details"] == {"filename": "cat.png", "prompt": "cat"}
+        assert events_j2[0]["details"] == {"filename": "dog.png", "prompt": "dog"}
+
     async def test_delete(self, tmp_store: JobStore) -> None:
         await tmp_store.save(_make_job(id="j1"))
         await tmp_store.save(_make_job(id="j2"))

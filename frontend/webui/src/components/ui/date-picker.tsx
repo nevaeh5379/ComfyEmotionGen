@@ -22,7 +22,7 @@ export function DatePicker({
   onChange,
   placeholder = "날짜 선택",
   className,
-}: DatePickerProps) {
+}: DatePickerProps): React.JSX.Element {
   return (
     <Popover>
       <PopoverTrigger asChild>

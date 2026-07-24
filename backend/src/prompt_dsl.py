@@ -12,6 +12,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import cast, Dict, List, Optional, Union, TypedDict
+import json
 import re
 
 from lark import Lark, Transformer, UnexpectedInput, Token, Tree
@@ -35,6 +36,9 @@ class LineType(Enum):
     FILENAME_END = "filename-end"
     COMBINE = "combine"
     EXCLUDE = "exclude"
+    OVERRIDE_HEADER = "override-header"
+    OVERRIDE_BODY = "override-body"
+    OVERRIDE_END = "override-end"
     COMMENT = "comment"
     END = "end"
     OTHER = "other"
@@ -63,6 +67,7 @@ class TemplateLine:
 class AxisValue:
     key: str
     value: str
+    file_key: Optional[str] = None
     hide_key: bool = False
     props: Dict[str, str] = field(default_factory=dict)
 
@@ -89,12 +94,27 @@ class ExcludeRule:
 
 
 @dataclass
+class OverrideAction:
+    target: str
+    op: str
+    value: JSONValue
+
+
+@dataclass
+class OverrideRule:
+    conditions: List[Condition]
+    actions: List[OverrideAction]
+    connective: str = "AND"
+
+
+@dataclass
 class Program:
     vars: Dict[str, str] = field(default_factory=dict)
     axes: Dict[str, Axis] = field(default_factory=dict)
     combine_alias: Optional[str] = None
     combine_expr: Optional[object] = None
     excludes: List[ExcludeRule] = field(default_factory=list)
+    overrides: List[OverrideRule] = field(default_factory=list)
     template: str = ""
     filename: str = ""
     template_structure: List[TemplateLine] = field(default_factory=list)
@@ -130,6 +150,9 @@ class _Builder(Transformer[Token, object]):
                     case "exclude":
                         if isinstance(payload, ExcludeRule):
                             prog.excludes.append(payload)
+                    case "override":
+                        if isinstance(payload, OverrideRule):
+                            prog.overrides.append(payload)
                     case "template":
                         prog.template = str(payload).strip()
                     case "filename":
@@ -162,14 +185,18 @@ class _Builder(Transformer[Token, object]):
 
     def axis_entry(self, items: list[object]) -> object:
         key = str(items[0])
-        val = items[1]
+        file_key = str(items[1]) if len(items) == 3 else None
+        val = items[-1]
         if isinstance(val, dict):
             props = cast(dict[str, str], val)
             value = ", ".join(props.values())
         else:
             props = {}
             value = str(val)
-        return AxisValue(key=key, value=value, props=props)
+        return AxisValue(key=key, value=value, file_key=file_key, props=props)
+
+    def axis_file_key(self, items: list[object]) -> object:
+        return str(items[1])[1:-1]
 
     def axis_value(self, items: list[object]) -> object:
         if not items:
@@ -222,6 +249,24 @@ class _Builder(Transformer[Token, object]):
                 connective = "OR"
         return ("exclude", ExcludeRule(conditions=conditions, connective=connective))
 
+    def override_block(self, items: list[object]) -> object:
+        conditions: list[Condition] = []
+        connective = "AND"
+        body = ""
+        for item in items:
+            if isinstance(item, Condition):
+                conditions.append(item)
+            elif isinstance(item, Token) and item.type == 'OR':
+                connective = "OR"
+            elif isinstance(item, Token) and item.type == "OVERRIDE_BODY":
+                body = str(item)
+        actions = _parse_override_actions(body)
+        return ("override", OverrideRule(
+            conditions=conditions,
+            actions=actions,
+            connective=connective,
+        ))
+
     def condition(self, items: list[object]) -> object:
         return items[0]
 
@@ -233,6 +278,9 @@ class _Builder(Transformer[Token, object]):
 
     def not_in_condition(self, items: list[object]) -> object:
         return Condition(axis=str(items[0]), op="not_in", values=[str(v) for v in items[1:]])
+
+    def has_condition(self, items: list[object]) -> object:
+        return Condition(axis=str(items[0]), op="has", values=[])
 
     def template_block(self, items: list[object]) -> object:
         return ("template", str(items[0]))
@@ -265,6 +313,58 @@ class DSLSyntaxError(Exception):
     """사용자에게 보여줄 친절한 문법 에러."""
 
 
+_OVERRIDE_ASSIGN_RE = re.compile(
+    r"^(prompt|slot\.[a-zA-Z_][a-zA-Z0-9_]*|meta\.[a-zA-Z_][a-zA-Z0-9_]*)\s*(=|\+=)\s*(.+)$"
+)
+
+
+def _parse_override_value(raw: str) -> JSONValue:
+    value = raw.strip()
+    if value == "":
+        raise DSLSyntaxError("override 값이 비어 있습니다.")
+    if value.startswith('"') and value.endswith('"'):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise DSLSyntaxError(f"override 문자열 값이 올바르지 않습니다: {value}") from exc
+        if isinstance(parsed, str):
+            return parsed
+        raise DSLSyntaxError(f"override 문자열 값이 올바르지 않습니다: {value}")
+    lower = value.lower()
+    if lower == "true":
+        return True
+    if lower == "false":
+        return False
+    if re.fullmatch(r"-?\d+", value):
+        return int(value)
+    if re.fullmatch(r"-?(?:\d+\.\d*|\d*\.\d+)", value):
+        return float(value)
+    return value
+
+
+def _parse_override_actions(body: str) -> List[OverrideAction]:
+    actions: List[OverrideAction] = []
+    for line_no, raw_line in enumerate(body.splitlines(), start=1):
+        line = raw_line.strip()
+        if line == "" or line.startswith("#") or line.startswith("//"):
+            continue
+        match = _OVERRIDE_ASSIGN_RE.match(line)
+        if match is None:
+            raise DSLSyntaxError(
+                f"override 문법 에러 (block line {line_no}): {line}\n"
+                "사용 예: prompt += \", extra\", slot.lora = \"name.safetensors\""
+            )
+        target, op, raw_value = match.groups()
+        if op == "+=" and target != "prompt":
+            raise DSLSyntaxError("override += 연산은 prompt에만 사용할 수 있습니다.")
+        actions.append(OverrideAction(
+            target=target,
+            op=op,
+            value=_parse_override_value(raw_value),
+        ))
+    return actions
+
+
 _TYPE_PRIORITY: Dict[LineType, int] = {
     LineType.SET_HEADER: 10,
     LineType.AXIS_HEADER: 10,
@@ -273,9 +373,12 @@ _TYPE_PRIORITY: Dict[LineType, int] = {
     LineType.AXIS_BODY: 9,
     LineType.TEMPLATE_BODY: 9,
     LineType.FILENAME_BODY: 9,
+    LineType.OVERRIDE_HEADER: 10,
+    LineType.OVERRIDE_BODY: 9,
     LineType.AXIS_END: 8,
     LineType.TEMPLATE_END: 8,
     LineType.FILENAME_END: 8,
+    LineType.OVERRIDE_END: 8,
     LineType.END: 8,
     LineType.AXIS_INCLUDE: 7,
     LineType.COMBINE: 5,
@@ -296,7 +399,7 @@ class _RowStructure(TypedDict):
 class _StructureExtractor:
     """Lark AST에서 템플릿 줄 번호별 매핑 정보를 추출한다."""
 
-    _REF_PATTERN = re.compile(r"\{\{\s*([a-zA-Z_\-][a-zA-Z0-9_\-]*)\s*\}\}")
+    _REF_PATTERN = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 
     def __init__(self, source: str) -> None:
         self.lines = source.split("\n")
@@ -401,6 +504,14 @@ class _StructureExtractor:
             self._tag(start, end, LineType.COMBINE)
         elif rule == "exclude_stmt":
             self._tag(start, end, LineType.EXCLUDE)
+        elif rule == "override_block":
+            self._tag(start, start, LineType.OVERRIDE_HEADER)
+            body_start = start + 1
+            body_end = end - 1
+            if body_end >= body_start:
+                self._tag(body_start, body_end, LineType.OVERRIDE_BODY)
+                self._collect_body_refs(body_start, body_end, LineType.OVERRIDE_BODY)
+            self._tag(end, end, LineType.OVERRIDE_END)
         elif rule == "comment":
             self._tag(start, end, LineType.COMMENT)
 
@@ -454,7 +565,13 @@ def eval_expr(expr: object, axes: Dict[str, Axis], vars: Dict[str, str]) -> List
             vals = axis.values
             if axis.include:
                 vals = [
-                    AxisValue(key=v.key, value=f"{v.value}, {axis.include}", hide_key=v.hide_key, props=v.props)
+                    AxisValue(
+                        key=v.key,
+                        value=f"{v.value}, {axis.include}",
+                        file_key=v.file_key,
+                        hide_key=v.hide_key,
+                        props=v.props,
+                    )
                     for v in vals
                 ]
             res = [{name: val} for val in vals]
@@ -476,7 +593,13 @@ def eval_expr(expr: object, axes: Dict[str, Axis], vars: Dict[str, str]) -> List
         for combo in res:
             new_combo = {}
             for k, v in combo.items():
-                new_combo[k] = AxisValue(key=v.key, value=v.value, hide_key=True, props=v.props)
+                new_combo[k] = AxisValue(
+                    key=v.key,
+                    value=v.value,
+                    file_key=v.file_key,
+                    hide_key=True,
+                    props=v.props,
+                )
             new_res.append(new_combo)
         return new_res
 
@@ -538,6 +661,57 @@ def _clean_prompt(s: str) -> str:
     return s.strip(" ,\n")
 
 
+def _conditions_match(
+    conditions: List[Condition],
+    connective: str,
+    combo_dict: Dict[str, AxisValue],
+) -> bool:
+    cks = {k: v.key for k, v in combo_dict.items()}
+    results: List[bool] = []
+    for cond in conditions:
+        val = cks.get(cond.axis)
+        if val is None:
+            results.append(False)
+        elif cond.op == "has":
+            results.append(val is not None and val != "")
+        elif cond.op == "eq":
+            results.append(bool(cond.values) and val == cond.values[0])
+        elif cond.op == "in":
+            results.append(val in cond.values)
+        elif cond.op == "not_in":
+            results.append(val not in cond.values)
+    if connective == "OR":
+        return any(results)
+    return all(results)
+
+
+def _apply_overrides(
+    prompt: str,
+    meta: Dict[str, str],
+    slots: Dict[str, JSONValue],
+    combo: Dict[str, AxisValue],
+    overrides: List[OverrideRule],
+) -> tuple[str, Dict[str, str], Dict[str, JSONValue]]:
+    next_prompt = prompt
+    next_meta = dict(meta)
+    next_slots = dict(slots)
+    for rule in overrides:
+        if not _conditions_match(rule.conditions, rule.connective, combo):
+            continue
+        for action in rule.actions:
+            if action.target == "prompt":
+                if action.op == "+=":
+                    next_prompt = _clean_prompt(f"{next_prompt}, {str(action.value)}")
+                else:
+                    next_prompt = _clean_prompt(str(action.value))
+            elif action.target.startswith("slot."):
+                next_slots[action.target.removeprefix("slot.")] = action.value
+            elif action.target.startswith("meta."):
+                key = action.target.removeprefix("meta.")
+                next_meta[key] = str(action.value)
+    return next_prompt, next_meta, next_slots
+
+
 def render(prog: Program, *,
            only: Optional[Dict[str, List[str]]] = None,
            fix: Optional[Dict[str, str]] = None,
@@ -551,7 +725,7 @@ def render(prog: Program, *,
             "items": [{
                 "filename": _substitute(prog.filename, prog.vars, {}).strip(),
                 "prompt": _clean_prompt(_substitute(prog.template, prog.vars, {})),
-                "meta": {},
+                "meta": {f"set.{vk}": str(vv) for vk, vv in prog.vars.items() if vk != "clean_filename"},
             }],
             "axes": {},
             "sets": dict(prog.vars),
@@ -578,25 +752,9 @@ def render(prog: Program, *,
     # -- skip_excludes: 기존 exclude 규칙 무시 --
     if not skip_excludes:
         def program_excluded(combo_dict: Dict[str, AxisValue]) -> bool:
-            cks = {k: v.key for k, v in combo_dict.items()}
             for rule in prog.excludes:
-                results = []
-                for cond in rule.conditions:
-                    val = cks.get(cond.axis)
-                    if val is None:
-                        results.append(False)
-                    elif cond.op == "eq":
-                        results.append(val == cond.values[0])
-                    elif cond.op == "in":
-                        results.append(val in cond.values)
-                    elif cond.op == "not_in":
-                        results.append(val not in cond.values)
-                if rule.connective == "AND":
-                    if all(results):
-                        return True
-                else:
-                    if any(results):
-                        return True
+                if _conditions_match(rule.conditions, rule.connective, combo_dict):
+                    return True
             return False
         combos = [c for c in combos if not program_excluded(c)]
 
@@ -618,25 +776,9 @@ def render(prog: Program, *,
             _extra_rules.append(ExcludeRule(conditions=conditions, connective=connective))
 
         def extra_excluded(combo_dict: Dict[str, AxisValue]) -> bool:
-            cks = {k: v.key for k, v in combo_dict.items()}
             for rule in _extra_rules:
-                results = []
-                for cond in rule.conditions:
-                    val = cks.get(cond.axis)
-                    if val is None:
-                        results.append(False)
-                    elif cond.op == "eq":
-                        results.append(val == cond.values[0])
-                    elif cond.op == "in":
-                        results.append(val in cond.values)
-                    elif cond.op == "not_in":
-                        results.append(val not in cond.values)
-                if rule.connective == "AND":
-                    if all(results):
-                        return True
-                else:
-                    if any(results):
-                        return True
+                if _conditions_match(rule.conditions, rule.connective, combo_dict):
+                    return True
             return False
         combos = [c for c in combos if not extra_excluded(c)]
 
@@ -651,20 +793,22 @@ def render(prog: Program, *,
     results = []
     for combo in combos:
         ctx = dict(prog.vars)
-        keys = {}
+        render_keys = {}
+        meta_keys = {}
         
         # 생략된 선택적 축들에 대해 빈 문자열 기본값 바인딩
         for name, axis_obj in prog.axes.items():
             if name not in combo:
                 ctx[name] = ""
-                keys[name] = ""
+                render_keys[name] = ""
                 
         for k, v in combo.items():
             ctx[k] = v.value
             if not getattr(v, "hide_key", False):
-                keys[k] = v.key
+                render_keys[k] = v.file_key or v.key
+                meta_keys[k] = v.key
             else:
-                keys[k] = ""
+                render_keys[k] = ""
             for prop_name, prop_val in v.props.items():
                 ctx[f"{k}.{prop_name}"] = prop_val
             
@@ -672,11 +816,15 @@ def render(prog: Program, *,
             alias = prog.combine_alias
             # v.value가 비어있지 않은 것만 모아서 조립
             c_val = ", ".join(v.value for v in combo.values() if v.value.strip())
-            c_key = "_".join(v.key for v in combo.values() if v.key.strip() and not getattr(v, "hide_key", False))
+            c_key = "_".join(
+                (v.file_key or v.key)
+                for v in combo.values()
+                if (v.file_key or v.key).strip() and not getattr(v, "hide_key", False)
+            )
             ctx[alias] = c_val
-            keys[alias] = c_key
+            render_keys[alias] = c_key
 
-        filename = _substitute(prog.filename, ctx, keys).strip()
+        filename = _substitute(prog.filename, ctx, render_keys).strip()
         
         # clean_filename 옵션이 true(기본값)인 경우에만 다듬기 수행
         clean_opt = prog.vars.get("clean_filename", "true").lower() == "true"
@@ -686,11 +834,29 @@ def render(prog: Program, *,
             filename = re.sub(r'\.\.+', '.', filename)
             filename = filename.strip('_-. ')
 
-        results.append({
+        meta_dict = {k: v for k, v in meta_keys.items() if k != prog.combine_alias and v}
+        for vk, vv in prog.vars.items():
+            if vk != "clean_filename":
+                meta_dict[f"set.{vk}"] = str(vv)
+
+        prompt = _clean_prompt(_substitute(prog.template, ctx, render_keys))
+        slots: Dict[str, JSONValue] = {}
+        prompt, meta_dict, slots = _apply_overrides(
+            prompt,
+            meta_dict,
+            slots,
+            combo,
+            prog.overrides,
+        )
+
+        item: Dict[str, JSONValue] = {
             "filename": filename,
-            "prompt": _clean_prompt(_substitute(prog.template, ctx, keys)),
-            "meta": {k: v for k, v in keys.items() if k != prog.combine_alias and keys[k]},
-        })
+            "prompt": prompt,
+            "meta": meta_dict,
+        }
+        if slots:
+            item["slots"] = slots
+        results.append(item)
 
     axes_info = {}
     for name, axis_obj in prog.axes.items():
@@ -700,6 +866,7 @@ def render(prog: Program, *,
             "values": [
                 {
                     "key": v.key,
+                    "file_key": v.file_key or v.key,
                     "value": v.value,
                     "props": dict(v.props),
                 }

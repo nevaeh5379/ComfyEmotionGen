@@ -32,6 +32,9 @@ export interface JobView {
   retryCount: number
   executionDurationMs: number | null
   meta?: Record<string, string>
+  cegTemplate?: string
+  imageUploads?: Record<string, Record<string, string>>
+  workerType?: string | null
   targetWorkerId?: string | null
 }
 
@@ -79,6 +82,7 @@ export interface SavedImage {
   tags: string[]
   cegTemplate?: string
   workflow?: Record<string, unknown>
+  meta?: Record<string, string>
 }
 
 export interface AssetGroup {
@@ -93,6 +97,21 @@ export interface AssetGroup {
 }
 
 export function hasApproved(images: SavedImage[]): boolean {
+  return images.some((img) => img.status === "approved")
+}
+
+/**
+ * The caller already matched images to a render item via axisSignature
+ * (imagesByFilename), so we only need to check the approval status here.
+ * Filename equality is NOT checked because edited images (e.g. those saved
+ * from the image editor with a `-edit-{timestamp}` suffix) have a different
+ * originalFilename but the same axis signature, and should still count as
+ * exportable for their matched combination folder.
+ */
+export function hasExportableApproved(
+  _filename: string,
+  images: SavedImage[]
+): boolean {
   return images.some((img) => img.status === "approved")
 }
 
@@ -131,4 +150,9 @@ export type BackendEvent =
     }
   | { type: "image.deleted"; hash: string }
   | { type: "job.deleted"; jobId: string }
-  | { type: "settings.updated"; key: string; value: string | null; sender?: string }
+  | {
+      type: "settings.updated"
+      key: string
+      value: string | null
+      sender?: string
+    }

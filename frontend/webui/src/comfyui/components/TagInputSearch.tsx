@@ -53,7 +53,7 @@ export const TagInputSearch = memo(function TagInputSearch({
 
   // Handle click outside to close the dropdown
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent): void {
       if (
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
@@ -62,7 +62,7 @@ export const TagInputSearch = memo(function TagInputSearch({
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
-    return () => {
+    return (): void => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [])
@@ -100,9 +100,11 @@ export const TagInputSearch = memo(function TagInputSearch({
           activeIndex >= 0 &&
           activeIndex < candidates.length
         ) {
-          const cand = candidates[activeIndex]!
-          onAddTag(getPrefix(cand.type) + cand.value)
-          setIsOpen(false)
+          const cand = candidates[activeIndex]
+          if (cand !== undefined) {
+            onAddTag(getPrefix(cand.type) + cand.value)
+            setIsOpen(false)
+          }
         } else {
           const trimmed = value.trim()
           if (trimmed) {
@@ -134,14 +136,17 @@ export const TagInputSearch = memo(function TagInputSearch({
         e.preventDefault()
         setIsOpen(false)
       } else if (e.key === "Backspace" && !value && tags.length > 0) {
-        onRemoveTag(tags[tags.length - 1]!)
+        const lastTag = tags[tags.length - 1]
+        if (lastTag !== undefined) {
+          onRemoveTag(lastTag)
+        }
       }
     },
     [candidates, tags, value, activeIndex, isOpen, onAddTag, onRemoveTag]
   )
 
   // Highlight matching characters by making them bold
-  const renderHighlight = (text: string, query: string) => {
+  const renderHighlight = (text: string, query: string): React.ReactNode => {
     const cleanQuery = query.replace(/^[@#$]/, "").toLowerCase()
     if (!cleanQuery) return <span>{text}</span>
     const index = text.toLowerCase().indexOf(cleanQuery)
@@ -181,7 +186,9 @@ export const TagInputSearch = memo(function TagInputSearch({
           {tag}
           <button
             type="button"
-            onClick={() => onRemoveTag(tag)}
+            onClick={() => {
+              onRemoveTag(tag)
+            }}
             className="inline-flex items-center justify-center rounded p-0.5 text-primary/70 transition-colors hover:bg-primary/20 hover:text-primary"
           >
             <X className="h-2.5 w-2.5" />
@@ -215,7 +222,9 @@ export const TagInputSearch = memo(function TagInputSearch({
             <button
               key={cand.value + "-" + cand.type}
               type="button"
-              onMouseEnter={() => setActiveIndex(idx)}
+              onMouseEnter={() => {
+                setActiveIndex(idx)
+              }}
               onClick={() => {
                 onAddTag(getPrefix(cand.type) + cand.value)
                 setIsOpen(false)

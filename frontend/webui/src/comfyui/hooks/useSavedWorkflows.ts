@@ -2,6 +2,7 @@ import { useCallback } from "react"
 import { type NodeMapping } from "../../lib/workflow"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { usePersistedItems } from "./usePersistedItems"
+import { createPersistedId, upsertNamedItem } from "../utils/persistedItems"
 
 export interface SavedNodeMappingPreset {
   id: string
@@ -20,31 +21,43 @@ export interface SavedWorkflow {
 
 const STORAGE_KEY = STORAGE_KEYS.savedWorkflows
 
+interface RawSavedWorkflow {
+  id?: string | number
+  name?: string
+  workflow?: string
+  nodeMappings?: NodeMapping[]
+  mappingPresets?: SavedNodeMappingPreset[]
+  savedAt?: number
+}
+
 function load(): SavedWorkflow[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+    const parsed = JSON.parse(
+      localStorage.getItem(STORAGE_KEY) ?? "[]"
+    ) as unknown
     if (!Array.isArray(parsed)) return []
-    // Migrate old format
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return parsed.map((w: any) => {
-      let mappingPresets = w.mappingPresets ?? []
-      // Migrate old nodeMappings to a default preset
+    const items = parsed as RawSavedWorkflow[]
+    return items.map((w) => {
+      let mappingPresets: SavedNodeMappingPreset[] = w.mappingPresets ?? []
       if (w.nodeMappings && mappingPresets.length === 0) {
         mappingPresets = [
           {
-            id: `migrated-${w.id}`,
+            id: `migrated-${typeof w.id === "string" || typeof w.id === "number" ? String(w.id) : ""}`,
             name: "기본 매핑",
             mappings: w.nodeMappings,
-            savedAt: w.savedAt,
+            savedAt: typeof w.savedAt === "number" ? w.savedAt : Date.now(),
           },
         ]
       }
       return {
-        id: w.id,
-        name: w.name,
-        workflow: w.workflow,
+        id:
+          typeof w.id === "string" || typeof w.id === "number"
+            ? String(w.id)
+            : "",
+        name: typeof w.name === "string" ? w.name : "",
+        workflow: typeof w.workflow === "string" ? w.workflow : "",
         mappingPresets,
-        savedAt: w.savedAt,
+        savedAt: typeof w.savedAt === "number" ? w.savedAt : Date.now(),
       }
     })
   } catch {
@@ -52,32 +65,33 @@ function load(): SavedWorkflow[] {
   }
 }
 
-export function useSavedWorkflows() {
+export function useSavedWorkflows(): {
+  workflows: SavedWorkflow[]
+  saveWorkflow: (name: string, workflow: string) => SavedWorkflow
+  deleteWorkflow: (id: string) => void
+  saveMappingPreset: (
+    workflowId: string,
+    name: string,
+    mappings: NodeMapping[]
+  ) => SavedWorkflow | null
+  deleteMappingPreset: (
+    workflowId: string,
+    presetId: string
+  ) => SavedWorkflow | null
+} {
   const { items: workflows, persist } = usePersistedItems(STORAGE_KEY, load)
 
   const saveWorkflow = useCallback(
     (name: string, workflow: string): SavedWorkflow => {
-      const trimmed = name.trim()
       const all = load()
-      const existing = all.find((w) => w.name === trimmed)
-      let nextW: SavedWorkflow
-      let nextAll: SavedWorkflow[]
-
-      if (existing) {
-        nextW = { ...existing, workflow, savedAt: Date.now() }
-        nextAll = all.map((w) => (w.id === existing.id ? nextW : w))
-      } else {
-        nextW = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          name: trimmed,
-          workflow,
-          mappingPresets: [],
-          savedAt: Date.now(),
-        }
-        nextAll = [...all, nextW]
-      }
-      persist(nextAll)
-      return nextW
+      const result = upsertNamedItem(all, name, (fields, existing) => ({
+        ...existing,
+        ...fields,
+        workflow,
+        mappingPresets: existing?.mappingPresets ?? [],
+      }))
+      persist(result.items)
+      return result.item
     },
     [persist]
   )
@@ -100,8 +114,9 @@ export function useSavedWorkflows() {
       const wIdx = all.findIndex((w) => w.id === workflowId)
       if (wIdx === -1) return null
 
-      const w = all[wIdx]!
-      const presets = w.mappingPresets || []
+      const w = all[wIdx]
+      if (w === undefined) return null
+      const presets = w.mappingPresets
       const existing = presets.find((p) => p.name === trimmed)
 
       let nextPresets: SavedNodeMappingPreset[]
@@ -113,7 +128,7 @@ export function useSavedWorkflows() {
         nextPresets = [
           ...presets,
           {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            id: createPersistedId(),
             name: trimmed,
             mappings,
             savedAt: Date.now(),
@@ -133,10 +148,9 @@ export function useSavedWorkflows() {
       const wIdx = all.findIndex((w) => w.id === workflowId)
       if (wIdx === -1) return null
 
-      const w = all[wIdx]!
-      const nextPresets = (w.mappingPresets || []).filter(
-        (p) => p.id !== presetId
-      )
+      const w = all[wIdx]
+      if (w === undefined) return null
+      const nextPresets = w.mappingPresets.filter((p) => p.id !== presetId)
       const nextW = { ...w, mappingPresets: nextPresets }
       persist(all.map((item, i) => (i === wIdx ? nextW : item)))
       return nextW

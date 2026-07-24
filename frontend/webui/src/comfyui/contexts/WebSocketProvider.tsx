@@ -20,6 +20,8 @@ import { WS_INITIAL_BACKOFF_MS, WS_MAX_BACKOFF_MS } from "../../lib/constants"
 import { API } from "../../lib/api"
 import { useEffectLog, useRenderLog } from "../../lib/renderLogger"
 import { BackendContext, type BackendContextValue } from "./BackendContext"
+import { BackendUrlContext } from "./BackendUrlContext"
+import { WorkerPreviewContext } from "./WorkerPreviewContext"
 import { fetchAllSettings, CLIENT_ID } from "../../lib/serverStorage"
 import {
   populateSettingsCache,
@@ -27,6 +29,7 @@ import {
 } from "../../lib/settingsCache"
 import { getSyncQueue } from "../hooks/useSyncedStorage"
 import { httpToWs } from "../../lib/utils"
+import { applyComfyApiBridge } from "../services/comfyApiBridge"
 
 interface ProviderProps {
   children: React.ReactNode
@@ -36,32 +39,41 @@ interface ProviderProps {
 
 const readStoredBackendUrl = (): string => {
   // 패키지 모드: 런처 주입 URL 강제. localStorage 무시 (포트가 매 실행마다 바뀜).
-  if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL as string
+  if (IS_PACKAGE_MODE) return PACKAGE_BACKEND_URL ?? DEFAULT_BACKEND_URL
   try {
-    return localStorage.getItem(STORAGE_KEYS.backendUrl) || DEFAULT_BACKEND_URL
+    return localStorage.getItem(STORAGE_KEYS.backendUrl) ?? DEFAULT_BACKEND_URL
   } catch {
     return DEFAULT_BACKEND_URL
   }
 }
 
-export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
+const WORKER_PREVIEW_MIN_INTERVAL_MS = 250
+
+export const WebSocketProvider = ({
+  children,
+  backendUrl,
+}: ProviderProps): React.JSX.Element => {
   useRenderLog("WebSocketProvider")
   const [storedUrl, setStoredUrl] = useState<string>(readStoredBackendUrl)
-  const url = backendUrl !== undefined ? backendUrl : storedUrl
+  const url = backendUrl ?? storedUrl
   const [isConnected, setIsConnected] = useState(false)
   const [jobs, setJobs] = useState<JobView[]>([])
   const [workers, setWorkers] = useState<WorkerView[]>([])
   const [paused, setPaused] = useState(false)
   const [sessionStartedAt] = useState<number>(() => Date.now())
-  const [workerPreviews, setWorkerPreviews] = useState<Record<string, number>>({})
+  const [workerPreviews, setWorkerPreviews] = useState<Record<string, number>>(
+    {}
+  )
 
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.backendUrl && e.newValue)
+    const onStorage = (e: StorageEvent): void => {
+      if (e.key === STORAGE_KEYS.backendUrl && e.newValue !== null)
         setStoredUrl(e.newValue)
     }
     window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
+    return (): void => {
+      window.removeEventListener("storage", onStorage)
+    }
   }, [])
 
   const socketRef = useRef<WebSocket | null>(null)
@@ -69,11 +81,36 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
   const reconnectTimerRef = useRef<number | null>(null)
 
   const applyEvent = useCallback((event: BackendEvent) => {
+    applyComfyApiBridge(event)
+    const clearWorkerPreview = (workerId: string): void => {
+      setWorkerPreviews((prev) => {
+        if (prev[workerId] === undefined) return prev
+        const { [workerId]: _removed, ...next } = prev
+        return next
+      })
+    }
     switch (event.type) {
       case "snapshot": {
         setJobs(event.jobs)
         setWorkers(event.workers)
         setPaused(event.paused)
+        const busyWorkerIds = new Set(
+          event.workers
+            .filter((worker) => worker.busy)
+            .map((worker) => worker.id)
+        )
+        setWorkerPreviews((prev) => {
+          let changed = false
+          const next: Record<string, number> = {}
+          for (const [workerId, previewToken] of Object.entries(prev)) {
+            if (busyWorkerIds.has(workerId)) {
+              next[workerId] = previewToken
+            } else {
+              changed = true
+            }
+          }
+          return changed ? next : prev
+        })
         break
       }
       case "job.created": {
@@ -82,6 +119,11 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         break
       }
       case "job.updated":
+        if (["done", "error", "cancelled"].includes(event.job.status)) {
+          if (event.job.workerId !== null) {
+            clearWorkerPreview(event.job.workerId)
+          }
+        }
         setJobs((prev) => {
           if (["done", "error", "cancelled"].includes(event.job.status)) {
             return prev.filter((j) => j.id !== event.job.id)
@@ -96,6 +138,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         setWorkers((prev) =>
           prev.map((w) => (w.id === event.worker.id ? event.worker : w))
         )
+        if (!event.worker.busy) {
+          clearWorkerPreview(event.worker.id)
+        }
         break
       case "worker.added":
         setWorkers((prev) =>
@@ -106,9 +151,20 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
         break
       case "worker.removed":
         setWorkers((prev) => prev.filter((w) => w.id !== event.workerId))
+        clearWorkerPreview(event.workerId)
         break
       case "worker.preview":
-        setWorkerPreviews((prev) => ({ ...prev, [event.workerId]: Date.now() }))
+        setWorkerPreviews((prev) => {
+          const now = Date.now()
+          const previous = prev[event.workerId]
+          if (
+            previous !== undefined &&
+            now - previous < WORKER_PREVIEW_MIN_INTERVAL_MS
+          ) {
+            return prev
+          }
+          return { ...prev, [event.workerId]: now }
+        })
         break
       case "control.updated":
         setPaused(event.paused)
@@ -141,9 +197,9 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
       const wsUrl = `${httpToWs(url)}${API.ws.events}`
 
-      const connect = () => {
+      const connect = (): void => {
         // 유효하지 않은 URL이면 재연결 타이머만 돌림
-        if (!wsUrl) {
+        if (wsUrl === "") {
           console.warn("[backend] invalid URL, skipping connection")
           if (reconnectTimerRef.current !== null) {
             clearTimeout(reconnectTimerRef.current)
@@ -175,23 +231,27 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
         socketRef.current = socket
 
-        socket.onopen = () => {
+        socket.onopen = (): void => {
           setIsConnected(true)
           backoff = WS_INITIAL_BACKOFF_MS
           console.info("[backend] connected")
           // 연결/재연결 시 전체 설정 1회 로드 → 오프라인 중 변경분 반영
-          fetchAllSettings().then((all) => {
-            if (all) {
-              const pendingKeys = new Set(getSyncQueue().map((i) => i.key))
-              const filtered = Object.fromEntries(
-                Object.entries(all).filter(([k]) => !pendingKeys.has(k))
-              )
-              populateSettingsCache(filtered)
-            }
-          }).catch((err) => console.warn("[WebSocket] 설정 동기화 실패:", err))
+          void fetchAllSettings()
+            .then((all) => {
+              if (all) {
+                const pendingKeys = new Set(getSyncQueue().map((i) => i.key))
+                const filtered = Object.fromEntries(
+                  Object.entries(all).filter(([k]) => !pendingKeys.has(k))
+                )
+                populateSettingsCache(filtered)
+              }
+            })
+            .catch((err: unknown) => {
+              console.warn("[WebSocket] 설정 동기화 실패:", err)
+            })
         }
 
-        socket.onmessage = (e) => {
+        socket.onmessage = (e): void => {
           if (typeof e.data !== "string") return
           try {
             const event = JSON.parse(e.data) as BackendEvent
@@ -201,12 +261,12 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
           }
         }
 
-        socket.onerror = () => {
+        socket.onerror = (): void => {
           // close가 따로 호출되니 여기서는 로깅만
           console.warn("[WebSocket] 에러 발생")
         }
 
-        socket.onclose = () => {
+        socket.onclose = (): void => {
           setIsConnected(false)
           socketRef.current = null
           if (!shouldReconnectRef.current) return
@@ -223,7 +283,7 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
 
       connect()
 
-      return () => {
+      return (): void => {
         shouldReconnectRef.current = false
         if (reconnectTimerRef.current !== null) {
           clearTimeout(reconnectTimerRef.current)
@@ -256,13 +316,18 @@ export const WebSocketProvider = ({ children, backendUrl }: ProviderProps) => {
       workers,
       paused,
       sessionStartedAt,
-      workerPreviews,
       backendUrl: url,
     }),
-    [isConnected, jobs, workers, paused, sessionStartedAt, workerPreviews, url]
+    [isConnected, jobs, workers, paused, sessionStartedAt, url]
   )
 
   return (
-    <BackendContext.Provider value={value}>{children}</BackendContext.Provider>
+    <BackendUrlContext value={url}>
+      <BackendContext.Provider value={value}>
+        <WorkerPreviewContext value={workerPreviews}>
+          {children}
+        </WorkerPreviewContext>
+      </BackendContext.Provider>
+    </BackendUrlContext>
   )
 }

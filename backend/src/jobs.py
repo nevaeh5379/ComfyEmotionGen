@@ -33,8 +33,10 @@ from typing import cast, Awaitable, Callable, Optional, overload, Any
 from pydantic import TypeAdapter, BaseModel, Field, ConfigDict
 from backend.src.models import (
     JobItem,
+    JobTemplateReplacement,
     JobStatus,
     JobResponse,
+    JobViewResponse,
     WorkerViewResponse,
     DiagnosticsSnapshotResponse,
     JobQueryResponse,
@@ -223,6 +225,33 @@ class Job(BaseModel):
             targetWorkerId=self.target_worker_id,
         )
 
+    def to_view_response(self) -> JobViewResponse:
+        """잡을 목록/이벤트용 경량 응답 모델로 변환한다."""
+        return JobViewResponse(
+            id=self.id,
+            filename=self.filename,
+            prompt=self.prompt,
+            status=self.status,
+            workerId=self.worker_id,
+            error=self.error,
+            imageUrls=self.image_urls,
+            savedImageHashes=self.saved_image_hashes,
+            progressPercent=self.progress_percent,
+            currentNodeName=self.current_node_name,
+            totalNodeCount=self.total_node_count,
+            completedNodeCount=self.completed_node_count,
+            createdAt=self.created_at,
+            startedAt=self.started_at,
+            finishedAt=self.finished_at,
+            retryCount=self.retry_count,
+            executionDurationMs=self.execution_duration_ms,
+            meta=self.meta,
+            cegTemplate=self.ceg_template,
+            imageUploads=self.image_uploads,
+            workerType=self.worker_type,
+            targetWorkerId=self.target_worker_id,
+        )
+
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Job:
         """딕셔너리로부터 Job 인스턴스를 생성한다 (DB 복원 시 사용).
@@ -386,8 +415,10 @@ class JobManager:
             self._dispatcher_task.cancel()
             try:
                 await self._dispatcher_task
-            except (asyncio.CancelledError, Exception):
-                pass
+            except asyncio.CancelledError:
+                logger.debug("dispatcher task cancelled during stop")
+            except Exception:
+                logger.warning("dispatcher task failed during stop", exc_info=True)
             self._dispatcher_task = None
         await self._pool.stop()
         if self._persist_tasks:
@@ -442,9 +473,8 @@ class JobManager:
             새로 생성된 잡 리스트 / List of newly created cloned jobs.
         """
         new_jobs = [job.clone() for job in items]
-        
-        for job in new_jobs:
-            await self._register_job(job)
+
+        await self._register_jobs(new_jobs)
         self._wakeup.set()
         return new_jobs
 
@@ -477,12 +507,11 @@ class JobManager:
         Create Jobs from multiple JobItems, register them, and wake the dispatcher.
         """
         created: list[Job] = self._create_jobs(items)
-            
 
-        for job in created:
-            await self._register_job(job)
+        await self._register_jobs(created)
         self._wakeup.set()
         return created
+
     def _create_jobs(self, items: list[JobItem]) -> list[Job]:
         """JobItem 리스트를 Job 인스턴스 리스트로 변환한다 (UUID 자동 생성).
         Convert a list of JobItems into Job instances with auto-generated UUIDs.
@@ -501,6 +530,22 @@ class JobManager:
             })
             for item in items
         ]
+
+    async def _register_jobs(self, jobs: list[Job]) -> None:
+        """여러 새 잡을 인메모리 저장소와 DB에 배치 등록하고 생성 이벤트를 발행한다.
+        Register new jobs in memory and persist them in one database transaction.
+        """
+        if not jobs:
+            return
+        async with self._lock:
+            for job in jobs:
+                self._jobs[job.id] = job
+        await self._store.save_many_with_created_events(
+            [job.to_dict() for job in jobs]
+        )
+        for job in jobs:
+            await self._emit({"type": "job.created", "job": job.to_dict()})
+
     @property
     def paused(self) -> bool:
         """디스패처가 일시정지 상태인지 반환한다.
@@ -789,12 +834,12 @@ class JobManager:
         self._wakeup.set()
         return True
 
-    async def snapshot(self) -> list[JobResponse]:
+    async def snapshot(self) -> list[JobViewResponse]:
         """현재 인메모리에 있는 모든 활성 잡의 스냅샷을 반환한다.
         Returns a snapshot of all currently active in-memory jobs.
         """
         async with self._lock:
-            return [j.to_response() for j in self._jobs.values()]
+            return [j.to_view_response() for j in self._jobs.values()]
 
     async def diagnostics_snapshot(self) -> DiagnosticsSnapshotResponse:
         """시스템 진단 정보 스냅샷을 반환한다 (잡 수, 리스너 수, 디스패처 상태 등).
@@ -869,14 +914,14 @@ class JobManager:
             sort_by=sort_by,
             sort_order=sort_order,
         )
-        response_items: list[JobResponse] = []
+        response_items: list[JobViewResponse] = []
         async with self._lock:
             for item in items:
                 jid = item["id"]
                 if jid in self._jobs:
-                    response_items.append(self._jobs[jid].to_response())
+                    response_items.append(self._jobs[jid].to_view_response())
                 else:
-                    response_items.append(Job.from_dict(item).to_response())
+                    response_items.append(Job.from_dict(item).to_view_response())
         return JobQueryResponse(total=total, items=response_items, limit=limit, offset=offset)
 
     async def get_job(self, job_id: str) -> Optional[Job]:
@@ -1558,6 +1603,56 @@ class JobManager:
         await self._emit({"type": "job.updated", "job": response.model_dump()})
         self._wakeup.set()
         return response
+
+    async def update_pending_jobs_template(
+        self, replacements: list[JobTemplateReplacement]
+    ) -> tuple[int, int]:
+        """현재 pending 상태인 잡들의 payload를 새 템플릿 결과로 교체한다.
+        Replace payload fields for jobs that are still pending.
+
+        queued/running 잡은 이미 워커 큐로 내려갔을 수 있으므로 갱신하지 않는다.
+        Jobs that are queued/running may already be submitted to a worker queue,
+        so they are intentionally skipped.
+        """
+        updated_jobs: list[Job] = []
+        skipped = 0
+
+        async with self._lock:
+            for replacement in replacements:
+                job = self._jobs.get(replacement.jobId)
+                if job is None or job.status != JobStatus.PENDING:
+                    skipped += 1
+                    continue
+
+                item = replacement.item
+                job.filename = item.filename
+                job.prompt = item.prompt
+                job.workflow = (
+                    item.workflow
+                    if item.workflow is not None
+                    else ComfyWorkflow.model_validate({})
+                )
+                job.meta = deepcopy(item.meta)
+                job.ceg_template = item.cegTemplate
+                job.image_uploads = deepcopy(item.imageUploads)
+                job.worker_type = item.workerType.value if item.workerType else None
+                job.target_worker_id = item.workerId
+                updated_jobs.append(job)
+
+        for job in updated_jobs:
+            await self._store.save(job.to_dict())
+            await self._store.save_event(
+                job.id,
+                "template_updated",
+                worker_id=job.target_worker_id,
+                details={"filename": job.filename, "prompt": job.prompt},
+            )
+            await self._emit({"type": "job.updated", "job": job.to_dict()})
+
+        if updated_jobs:
+            self._wakeup.set()
+        return len(updated_jobs), skipped
+
     async def _emit(self, event: NormalizedEvent | dict[str, JSONValue]) -> None:
         """정규화된 이벤트를 모든 구독 리스너에게 발행한다.
         Emit a normalized event to all subscribed listeners.
@@ -1732,6 +1827,7 @@ class JobManager:
         *,
         status: Optional[str] = None,
         note: Optional[str] = None,
+        meta: Optional[dict[str, str]] = None,
     ) -> Optional[SavedImageResponse]:
         """저장된 이미지의 큐레이션 상태/노트를 업데이트한다.
         Update the curation status and/or note of a saved image.
@@ -1743,6 +1839,7 @@ class JobManager:
             hash: 이미지 해시 / Image hash.
             status: 새 큐레이션 상태 (예: 'approved', 'trashed') / New curation status.
             note: 큐레이션 노트 / Curation note.
+            meta: 큐레이션 메타데이터 / Curation metadata.
 
         Returns:
             업데이트된 이미지 응답 또는 None / Updated image response, or None if not found.
@@ -1751,7 +1848,7 @@ class JobManager:
         if existing is None:
             return None
         old_status = str(existing.get("status") or "")
-        updated_dict = await self._store.update_curation(hash, status=status, note=note)
+        updated_dict = await self._store.update_curation(hash, status=status, note=note, meta=meta)
         if updated_dict is None:
             return None
 

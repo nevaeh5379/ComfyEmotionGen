@@ -5,6 +5,8 @@ import {
   CheckCircleIcon,
   CheckSquareIcon,
   CopyIcon,
+  Brush,
+  Edit3,
   EyeIcon,
   ImageOff,
   RotateCcwIcon,
@@ -13,8 +15,11 @@ import {
   XCircleIcon,
   Download,
   FileJson,
+  FileCode2,
   Tag,
 } from "lucide-react"
+import { toast } from "sonner"
+import { copyImageUrlToClipboard } from "@/lib/clipboard"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -47,6 +52,8 @@ export interface GridProps {
   backendUrl: string
   setStatus: (hash: string, status: CurationStatus) => void
   onOpen: (img: SavedImage) => void
+  onInpaint?: (img: SavedImage) => void
+  onEdit?: (img: SavedImage) => void
   selectionMode?: boolean
   selectedHashes?: Set<string>
   onToggleSelect?: (hash: string) => void
@@ -65,6 +72,8 @@ export function ImageGrid({
   backendUrl,
   setStatus,
   onOpen,
+  onInpaint,
+  onEdit,
   selectionMode = false,
   selectedHashes = new Set(),
   onToggleSelect,
@@ -76,7 +85,7 @@ export function ImageGrid({
   onFocus,
   thumbnailSize,
   fluidGridLayout = true,
-}: GridProps) {
+}: GridProps): JSX.Element {
   const [brokenHashes, setBrokenHashes] = useState<Set<string>>(new Set())
 
   const handleSetBroken = useCallback((hash: string) => {
@@ -108,8 +117,8 @@ export function ImageGrid({
       className="grid items-start gap-3 sm:gap-4"
       style={{
         gridTemplateColumns: fluidGridLayout
-          ? `repeat(auto-fill, minmax(${thumbnailSize ?? 180}px, 1fr))`
-          : `repeat(auto-fill, ${thumbnailSize ?? 180}px)`,
+          ? `repeat(auto-fill, minmax(${String(thumbnailSize ?? 180)}px, 1fr))`
+          : `repeat(auto-fill, ${String(thumbnailSize ?? 180)}px)`,
       }}
     >
       {items.map((img) => {
@@ -125,6 +134,8 @@ export function ImageGrid({
             backendUrl={backendUrl}
             setStatus={setStatus}
             onOpen={onOpen}
+            onInpaint={onInpaint}
+            onEdit={onEdit}
             selectionMode={selectionMode}
             isSelected={isSelected}
             onToggleSelect={onToggleSelect}
@@ -147,6 +158,8 @@ interface ImageGridItemProps {
   backendUrl: string
   setStatus: (hash: string, status: CurationStatus) => void
   onOpen: (img: SavedImage) => void
+  onInpaint: ((img: SavedImage) => void) | undefined
+  onEdit: ((img: SavedImage) => void) | undefined
   selectionMode: boolean
   isSelected: boolean
   onToggleSelect: ((hash: string) => void) | undefined
@@ -164,6 +177,8 @@ const ImageGridItem = memo(function ImageGridItem({
   backendUrl,
   setStatus,
   onOpen,
+  onInpaint,
+  onEdit,
   selectionMode,
   isSelected,
   onToggleSelect,
@@ -181,6 +196,10 @@ const ImageGridItem = memo(function ImageGridItem({
         <div
           data-selectable="true"
           data-image-hash={img.hash}
+          style={{
+            contentVisibility: "auto",
+            containIntrinsicSize: "180px 260px",
+          }}
           onClick={() => onFocus?.(img.hash)}
           className={`m-1 flex cursor-pointer break-inside-avoid flex-col rounded-lg border bg-card transition-all hover:shadow-md ${
             isSelected
@@ -214,8 +233,12 @@ const ImageGridItem = memo(function ImageGridItem({
                   src={`${backendUrl}/saved-images/${img.hash}`}
                   alt={img.originalFilename}
                   loading={imageLazyLoad ? "lazy" : "eager"}
+                  decoding="async"
+                  fetchPriority={imageLazyLoad ? "low" : "auto"}
                   className="w-full object-cover transition-transform group-hover:scale-105"
-                  onError={() => onSetBroken(img.hash)}
+                  onError={() => {
+                    onSetBroken(img.hash)
+                  }}
                 />
               )}
             </button>
@@ -264,9 +287,7 @@ const ImageGridItem = memo(function ImageGridItem({
                       img.status === "trashed" ? "pending" : "trashed"
                     )
                   }}
-                  aria-label={
-                    img.status === "trashed" ? "복원" : "휴지통"
-                  }
+                  aria-label={img.status === "trashed" ? "복원" : "휴지통"}
                 >
                   <Trash2Icon className="h-4 w-4" />
                 </button>
@@ -312,7 +333,9 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() => setStatus(img.hash, "approved")}
+          onClick={() => {
+            setStatus(img.hash, "approved")
+          }}
           className="gap-2 font-bold text-ok"
           disabled={img.status === "approved"}
         >
@@ -320,7 +343,9 @@ const ImageGridItem = memo(function ImageGridItem({
           통과
         </ContextMenuItem>
         <ContextMenuItem
-          onClick={() => setStatus(img.hash, "rejected")}
+          onClick={() => {
+            setStatus(img.hash, "rejected")
+          }}
           className="gap-2 font-bold text-bad"
           disabled={img.status === "rejected"}
         >
@@ -328,7 +353,9 @@ const ImageGridItem = memo(function ImageGridItem({
           탈락
         </ContextMenuItem>
         <ContextMenuItem
-          onClick={() => setStatus(img.hash, "pending")}
+          onClick={() => {
+            setStatus(img.hash, "pending")
+          }}
           className="gap-2 font-bold text-info"
           disabled={img.status === "pending"}
         >
@@ -337,12 +364,12 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() =>
+          onClick={() => {
             setStatus(
               img.hash,
               img.status === "trashed" ? "pending" : "trashed"
             )
-          }
+          }}
           className="gap-2 font-bold"
         >
           <Trash2Icon className="h-3.5 w-3.5" />
@@ -350,11 +377,31 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onClick={() => onOpen(img)}
+          onClick={() => {
+            onOpen(img)
+          }}
           className="gap-2 font-bold"
         >
           <EyeIcon className="h-3.5 w-3.5" />
           상세 보기
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            onInpaint?.(img)
+          }}
+          className="gap-2 font-bold"
+        >
+          <Brush className="h-3.5 w-3.5" />
+          인페인팅 편집
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            onEdit?.(img)
+          }}
+          className="gap-2 font-bold"
+        >
+          <Edit3 className="h-3.5 w-3.5" />
+          이미지 편집
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
@@ -363,15 +410,15 @@ const ImageGridItem = memo(function ImageGridItem({
               if (img.workflow) {
                 workflowStr = JSON.stringify(img.workflow, null, 2)
               } else if (img.prompt) {
-                const parsed = JSON.parse(img.prompt)
+                const parsed: unknown = JSON.parse(img.prompt)
                 workflowStr = JSON.stringify(parsed, null, 2)
               }
               if (workflowStr) {
-                navigator.clipboard.writeText(workflowStr).catch(() => {})
+                void navigator.clipboard.writeText(workflowStr)
               }
             } catch {
               if (img.prompt) {
-                navigator.clipboard.writeText(img.prompt).catch(() => {})
+                void navigator.clipboard.writeText(img.prompt)
               }
             }
           }}
@@ -383,13 +430,32 @@ const ImageGridItem = memo(function ImageGridItem({
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {
-            if (img.tags && img.tags.length > 0) {
-              navigator.clipboard
-                .writeText(img.tags.join(", "))
-                .catch(() => {})
+            if ((img.cegTemplate?.trim() ?? "") !== "") {
+              const template = img.cegTemplate
+              if (template === undefined) return
+              void navigator.clipboard
+                .writeText(template)
+                .then(() => {
+                  toast.success("CEG 문법이 클립보드에 복사되었습니다.")
+                })
+                .catch(() => {
+                  toast.error("CEG 문법 복사에 실패했습니다.")
+                })
             }
           }}
-          disabled={!img.tags || img.tags.length === 0}
+          disabled={(img.cegTemplate?.trim() ?? "") === ""}
+          className="gap-2 font-bold"
+        >
+          <FileCode2 className="h-3.5 w-3.5" />
+          CEG 문법 복사
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            if (img.tags.length > 0) {
+              void navigator.clipboard.writeText(img.tags.join(", "))
+            }
+          }}
+          disabled={img.tags.length === 0}
           className="gap-2 font-bold"
         >
           <Tag className="h-3.5 w-3.5" />
@@ -414,7 +480,23 @@ const ImageGridItem = memo(function ImageGridItem({
         <ContextMenuItem
           onClick={() => {
             const url = `${backendUrl}/saved-images/${img.hash}`
-            navigator.clipboard.writeText(url).catch(() => {})
+            void copyImageUrlToClipboard(url)
+              .then(() => {
+                toast.success("이미지가 클립보드에 복사되었습니다.")
+              })
+              .catch(() => {
+                toast.error("이미지 복사에 실패했습니다.")
+              })
+          }}
+          className="gap-2 font-bold"
+        >
+          <CopyIcon className="h-3.5 w-3.5" />
+          이미지 복사
+        </ContextMenuItem>
+        <ContextMenuItem
+          onClick={() => {
+            const url = `${backendUrl}/saved-images/${img.hash}`
+            void navigator.clipboard.writeText(url)
           }}
           className="gap-2 font-bold"
         >

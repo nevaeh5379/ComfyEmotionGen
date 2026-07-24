@@ -5,7 +5,7 @@ export function useContextRequired<T>(
   hookName: string
 ): T {
   const ctx = useContext(context)
-  if (!ctx)
+  if (ctx === null || ctx === undefined)
     throw new Error(`${hookName} must be used within its Provider`)
   return ctx
 }

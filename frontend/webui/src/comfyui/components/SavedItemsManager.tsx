@@ -71,19 +71,20 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
   activeItemId,
   onUpdate,
   allowEmptySave,
-}: SaveInputProps<T>) {
+}: SaveInputProps<T>): React.JSX.Element {
   const [name, setName] = useState("")
   const [open, setOpen] = useState(false)
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasItems = items !== undefined
-  const hasActivePreset = !!activeName
+  const hasActivePreset = activeName !== undefined
   const canSave =
-    !saveDisabled && (name.trim() || hasActivePreset || !!allowEmptySave)
+    !saveDisabled &&
+    (name.trim() !== "" || hasActivePreset || allowEmptySave === true)
 
   const filteredItems = hasItems
-    ? (items ?? []).filter((item) => {
+    ? items.filter((item) => {
         const q = name.trim().toLowerCase()
         if (!q) return true
         return (
@@ -99,10 +100,10 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
     const el = listRef.current.querySelectorAll("[data-item]")[
       focusedIndex
     ] as HTMLElement
-    el?.scrollIntoView({ block: "nearest" })
+    el.scrollIntoView({ block: "nearest" })
   }, [focusedIndex])
 
-  const handleSave = () => {
+  const handleSave = (): void => {
     const trimmed = name.trim()
     if (!trimmed && hasActivePreset && onUpdate) {
       onUpdate()
@@ -113,7 +114,7 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (open && filteredItems.length > 0) {
       if (e.key === "ArrowDown" || e.key === "Tab") {
         e.preventDefault()
@@ -203,9 +204,12 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
       <PopoverAnchor asChild>{inner}</PopoverAnchor>
       <PopoverContent
         className="p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+        }}
         onInteractOutside={(e) => {
-          if (inputRef.current?.contains(e.target as Node)) return
+          if (!!inputRef.current && inputRef.current.contains(e.target as Node))
+            return
           setOpen(false)
           setFocusedIndex(-1)
         }}
@@ -232,8 +236,12 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                         isFocused &&
                           "bg-accent ring-1 ring-primary/50 outline-none"
                       )}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onMouseEnter={() => setFocusedIndex(index)}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                      }}
+                      onMouseEnter={() => {
+                        setFocusedIndex(index)
+                      }}
                     >
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -283,7 +291,11 @@ export function SaveInputBar<T extends SaveableItem = SaveableItem>({
                     </ContextMenuItem>
                     <ContextMenuItem
                       onClick={() => {
-                        navigator.clipboard.writeText(item.name).catch(() => {})
+                        navigator.clipboard
+                          .writeText(item.name)
+                          .catch((_err: unknown) => {
+                            void _err
+                          })
                       }}
                       className="gap-2 font-bold"
                     >
@@ -318,7 +330,7 @@ export function SavedItemsList<T extends SaveableItem>({
   activeItemId,
 
   className,
-}: SavedListProps<T>) {
+}: SavedListProps<T>): React.JSX.Element {
   if (items.length === 0) {
     return (
       <p className="py-2 text-center text-xs text-muted-foreground">
@@ -343,7 +355,9 @@ export function SavedItemsList<T extends SaveableItem>({
                   <TooltipTrigger asChild>
                     <button
                       className={`min-w-0 flex-1 truncate py-2 text-left text-sm hover:underline md:py-1 ${isActive ? "font-semibold text-primary" : ""}`}
-                      onClick={() => onLoad(item)}
+                      onClick={() => {
+                        onLoad(item)
+                      }}
                     >
                       {item.name}
                     </button>
@@ -361,7 +375,9 @@ export function SavedItemsList<T extends SaveableItem>({
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 flex-none p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => onDelete(item.id)}
+                        onClick={() => {
+                          onDelete(item.id)
+                        }}
                       >
                         <Trash2Icon />
                       </Button>
@@ -373,7 +389,9 @@ export function SavedItemsList<T extends SaveableItem>({
             </ContextMenuTrigger>
             <ContextMenuContent className="w-40">
               <ContextMenuItem
-                onClick={() => onLoad(item)}
+                onClick={() => {
+                  onLoad(item)
+                }}
                 className="gap-2 font-bold"
               >
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -381,7 +399,11 @@ export function SavedItemsList<T extends SaveableItem>({
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => {
-                  navigator.clipboard.writeText(item.name).catch(() => {})
+                  navigator.clipboard
+                    .writeText(item.name)
+                    .catch((_err: unknown) => {
+                      void _err
+                    })
                 }}
                 className="gap-2 font-bold"
               >
@@ -390,7 +412,9 @@ export function SavedItemsList<T extends SaveableItem>({
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
-                onClick={() => onDelete(item.id)}
+                onClick={() => {
+                  onDelete(item.id)
+                }}
                 className="gap-2 font-bold text-bad hover:text-bad"
               >
                 <Trash2Icon className="h-3.5 w-3.5" />
@@ -425,7 +449,7 @@ export function SavedItemsManager<T extends SaveableItem>({
   saveDisabled,
   activeItemId,
   onUpdate,
-}: SavedItemsManagerProps<T>) {
+}: SavedItemsManagerProps<T>): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
       <SaveInputBar

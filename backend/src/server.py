@@ -47,12 +47,15 @@ import logging
 import mimetypes
 import zipfile
 import os
+import re
+import time
 import tracemalloc
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union, AsyncGenerator
+from typing import Awaitable, Callable, Dict, List, Literal, Optional, Union, AsyncGenerator
+import websockets
 
-from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query
+from fastapi import FastAPI, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -62,10 +65,13 @@ from backend.src.prompt_dsl import DSLSyntaxError, parse, render, inject_into_wo
 from backend.src.worker_pool import DEFAULT_COMFYUI_URL, WorkerPool, read_env_worker_urls
 from backend.src.jobs import ActiveJobError, JobManager, DEFAULT_IMAGES_DIR, UPLOAD_IMAGES_DIR
 from backend.src.job_store import JobStore
+from backend.src import configure_logging
 from backend.src.webhook import WebhookService, WEBHOOK_EVENTS
+from backend.src.inpaint import get_capabilities as get_inpaint_capabilities, is_inpaint_available, remove_object as lama_remove_object
 from backend.src._version import BACKEND_VERSION, BUNDLE_VERSION, COMMIT
 from backend.src.models import (
     JobItem,
+    JobTemplateReplacement,
     NormalizedEvent,
     JobUpdatedEvent,
     JobStatus,
@@ -73,6 +79,7 @@ from backend.src.models import (
     SnapshotEvent,
     SettingsUpdatedEvent,
     SavedImageResponse,
+    SavedImageListItemResponse,
     SavedImagesListResponse,
     JobSavedImagesResponse,
     JSONValue,
@@ -211,6 +218,7 @@ class RenderItem(BaseModel):
     filename: str
     prompt: str
     meta: Dict[str, str]
+    slots: Dict[str, JSONValue] = Field(default_factory=dict)
 
 
 class RenderResponse(BaseModel):
@@ -287,6 +295,16 @@ class JobsCreateRequest(BaseModel):
     items: List[JobItem]
 
 
+class JobsTemplateUpdateRequest(BaseModel):
+    """대기 중인 잡 payload를 현재 CEG 템플릿 결과로 갱신한다.
+
+    Request model for replacing payloads of existing pending jobs with
+    workflows/prompts generated from the current CEG template.
+    Used by POST /jobs/update-pending-template.
+    """
+    replacements: List[JobTemplateReplacement] = Field(..., min_length=1)
+
+
 class CurationPatch(BaseModel):
     """큐레이션 패치 모델. 저장된 이미지의 상태(승인/거절/휴지통)나 메모를 수정한다.
 
@@ -295,6 +313,7 @@ class CurationPatch(BaseModel):
     """
     status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = None
     note: Optional[str] = None
+    meta: Optional[dict[str, str]] = None
 
 
 class TagsAddRequest(BaseModel):
@@ -327,8 +346,25 @@ class ExportRequest(BaseModel):
     """
     status: Optional[Literal["pending", "approved", "rejected", "trashed"]] = "approved"
     filenames: Optional[List[str]] = None
+    hashes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     duplicateStrategy: Literal["hash", "number"] = "hash"
+
+class FilenameRenameRequest(BaseModel):
+    """파일명 그룹 일괄 리네임 요청 모델. 저장 이미지의 original_filename 부분 문자열을
+    치환하고 (옵션) 메타의 축 값도 함께 치환한다. file_key 오타 수정 등에 사용.
+
+    Request model for batch renaming saved-image filenames. Replaces a substring
+    in original_filename and optionally updates an axis value in meta_json.
+    Used by POST /saved-images/rename.
+    """
+    fromSegment: str = Field(..., description="원본 filename에서 찾을 부분 문자열")
+    toSegment: str = Field(..., description="치환할 새 부분 문자열")
+    axisName: Optional[str] = Field(None, description="함께 갱신할 축 이름")
+    axisValueFrom: Optional[str] = Field(None, description="치환 전 축 값 (이 값과 일치할 때만)")
+    axisValueTo: Optional[str] = Field(None, description="치환 후 축 값")
+    dryRun: bool = Field(False, description="true면 변경사항 적용 않고 후보만 반환")
+
 
 class JobsDeleteRequest(BaseModel):
     """잡 일괄 삭제 요청 모델. 여러 잡을 DB와 메모리에서 영구 삭제한다.
@@ -558,6 +594,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Performs cleanup on shutdown.
     """
     global worker_pool, job_manager, webhook_service
+    configure_logging()
+    logger.info("backend lifespan startup begin")
     store = JobStore()
     await store.open()
     initial_urls = await _resolve_initial_worker_urls(store)
@@ -599,7 +637,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
+        logger.info("backend lifespan shutdown begin")
         await job_manager.stop()
+        logger.info("backend lifespan shutdown complete")
 
 
 app = FastAPI(
@@ -619,6 +659,41 @@ UPLOAD_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploaded_images", StaticFiles(directory=str(UPLOAD_IMAGES_DIR)), name="uploaded_images")
 
 
+# ====== 요청 로깅 ======
+
+
+@app.middleware("http")
+async def log_http_requests(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    started = time.monotonic()
+    client = request.client.host if request.client else "-"
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = (time.monotonic() - started) * 1000
+        logger.exception(
+            "http request failed: method=%s path=%s client=%s duration_ms=%.1f",
+            request.method,
+            request.url.path,
+            client,
+            duration_ms,
+        )
+        raise
+
+    duration_ms = (time.monotonic() - started) * 1000
+    logger.info(
+        "http request complete: method=%s path=%s status=%s client=%s duration_ms=%.1f",
+        request.method,
+        request.url.path,
+        response.status_code,
+        client,
+        duration_ms,
+    )
+    return response
+
+
 # ====== 에러 핸들러 ======
 
 
@@ -628,11 +703,22 @@ async def _dsl_error_handler(_request: Request, exc: DSLSyntaxError) -> JSONResp
 
     Global error handler for DSL syntax errors.
     Converts DSLSyntaxError exceptions into HTTP 400 JSON responses.
+    The message may contain a leading "문법 에러 (line N, column M):" prefix
+    (from Lark UnexpectedInput); parse it out into structured fields.
     """
-    return JSONResponse(
-        status_code=400,
-        content={"error": "DSLSyntaxError", "message": str(exc)},
-    )
+    message = str(exc)
+    line: int | None = None
+    column: int | None = None
+    m = re.search(r"\(line (\d+), column (\d+)\)", message)
+    if m:
+        line = int(m.group(1))
+        column = int(m.group(2))
+    body: dict[str, JSONValue] = {"error": "DSLSyntaxError", "message": message}
+    if line is not None:
+        body["line"] = line
+    if column is not None:
+        body["column"] = column
+    return JSONResponse(status_code=400, content=body)
 
 
 # ====== 헬스/파서 ======
@@ -658,9 +744,11 @@ def list_system_templates() -> list[dict[str, str]]:
         try:
             code = path.read_text(encoding="utf-8")
         except Exception:
+            logger.debug("failed to read template as utf-8, trying cp949: path=%s", path, exc_info=True)
             try:
                 code = path.read_text(encoding="cp949")
             except Exception:
+                logger.warning("failed to read system template: path=%s", path, exc_info=True)
                 continue
         templates.append({
             "id": f"system-{safe_id}",
@@ -672,32 +760,78 @@ def list_system_templates() -> list[dict[str, str]]:
 
 
 @app.get("/object_info")
-async def get_object_info() -> dict[str, JSONValue]:
+async def get_object_info(worker_id: Optional[str] = None) -> dict[str, JSONValue]:
     """ComfyUI 노드 정의(object_info.json)를 반환한다.
     가용 워커를 찾아 프록시하며, 워커가 없으면 503 에러.
 
     Returns ComfyUI node definitions (object_info).
     Proxies through an available worker. Returns 503 if no worker is reachable.
     """
-    # 1. 워커 프록시 우선 (라이브 데이터 / Proxy live data from worker first)
-    worker = worker_pool.find_idle()
-    if worker is None:
-        for w in worker_pool.all():
-            if w.alive:
-                worker = w
-                break
+    # 1. 특정 워커 지정 시 해당 워커 조회
+    if worker_id:
+        worker = worker_pool.get(worker_id)
+        if worker is None or not worker.alive:
+            raise HTTPException(
+                status_code=400,
+                detail=f"worker {worker_id} not found or offline"
+            )
+    else:
+        # 2. 워커 프록시 우선 (라이브 데이터)
+        worker = worker_pool.find_idle()
+        if worker is None:
+            for w in worker_pool.all():
+                if w.alive:
+                    worker = w
+                    break
+
     if worker is not None:
         try:
             return await worker.get_object_info()
         except Exception as exc:
             logger.warning("worker object_info failed: %s", exc)
 
-    # 2. 가용한 워커가 없으면 503 에러 발생 (ComfyUI가 꺼져 있음을 명시)
+    # 3. 가용한 워커가 없으면 503 에러 발생 (ComfyUI가 꺼져 있음을 명시)
     # No available worker → 503 (ComfyUI is offline)
     raise HTTPException(
         status_code=503,
         detail="no available worker and ComfyUI is offline"
     )
+
+
+@app.get("/extensions")
+async def get_extensions(worker_id: Optional[str] = None) -> list[str]:
+    """ComfyUI 익스텐션 목록을 반환한다.
+    가용 워커를 찾아 프록시하며, 워커가 없으면 빈 리스트.
+
+    Returns ComfyUI custom node extensions list.
+    Proxies through an available worker. Returns empty list if no worker is reachable.
+    """
+    if worker_id:
+        worker = worker_pool.get(worker_id)
+        if worker is None or not worker.alive:
+            raise HTTPException(
+                status_code=400,
+                detail=f"worker {worker_id} not found or offline"
+            )
+    else:
+        worker = worker_pool.find_idle()
+        if worker is None:
+            for w in worker_pool.all():
+                if w.alive:
+                    worker = w
+                    break
+
+    if worker is not None:
+        try:
+            return await worker.get_extensions()
+        except Exception as exc:
+            logger.warning("worker extensions failed: %s", exc)
+
+    # 익스텐션은 필수가 아니므로 워커가 없어도 빈 리스트 반환
+    return []
+
+
+
 
 
 @app.get("/version")
@@ -873,6 +1007,60 @@ async def worker_preview(worker_id: str) -> Response:
     return Response(content=preview_bytes, media_type="image/png")
 
 
+@app.get("/workers/{worker_id}/history")
+async def worker_history(worker_id: str, prompt_id: Optional[str] = None) -> dict[str, JSONValue]:
+    """특정 워커(ComfyUI 인스턴스)의 실행 히스토리를 반환한다."""
+    worker = worker_pool.get(worker_id)
+    if worker is None or not worker.alive:
+        raise HTTPException(
+            status_code=400,
+            detail=f"worker {worker_id} not found or offline"
+        )
+    try:
+        if hasattr(worker, "get_history"):
+            return await worker.get_history(prompt_id)
+        raise HTTPException(status_code=400, detail="Worker does not support history")
+    except Exception as exc:
+        logger.warning("worker get_history failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/workers/{worker_id}/comfy_workflows")
+async def worker_comfy_workflows(worker_id: str) -> list[JSONValue]:
+    """특정 워커(ComfyUI 인스턴스)의 저장된 워크플로우 파일 목록을 반환합니다."""
+    worker = worker_pool.get(worker_id)
+    if worker is None or not worker.alive:
+        raise HTTPException(
+            status_code=400,
+            detail=f"worker {worker_id} not found or offline"
+        )
+    try:
+        if hasattr(worker, "get_userdata_workflows"):
+            return await worker.get_userdata_workflows()
+        raise HTTPException(status_code=400, detail="Worker does not support userdata API")
+    except Exception as exc:
+        logger.warning("worker get_userdata_workflows failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/workers/{worker_id}/comfy_workflows/{filename}")
+async def worker_comfy_workflow_file(worker_id: str, filename: str) -> dict[str, JSONValue]:
+    """특정 워커(ComfyUI 인스턴스)의 특정 워크플로우 파일 내용을 반환합니다."""
+    worker = worker_pool.get(worker_id)
+    if worker is None or not worker.alive:
+        raise HTTPException(
+            status_code=400,
+            detail=f"worker {worker_id} not found or offline"
+        )
+    try:
+        if hasattr(worker, "get_userdata_workflow_file"):
+            return await worker.get_userdata_workflow_file(filename)
+        raise HTTPException(status_code=400, detail="Worker does not support userdata API")
+    except Exception as exc:
+        logger.warning("worker get_userdata_workflow_file failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.post("/render", response_model=RenderResponse)
 def render_endpoint(req: RenderRequest) -> dict[str, JSONValue]:
     """CEG DSL 템플릿을 파싱하고 렌더링하여 프롬프트 목록을 반환한다.
@@ -1021,6 +1209,21 @@ async def jobs_session_stats(req: SessionStatsRequest) -> SessionStatsResponse:
         sessionJobCounts=session_job_counts,
         selectedSessionCounts=selected_session_counts,
     )
+
+
+@app.post("/jobs/update-pending-template")
+async def jobs_update_pending_template(
+    req: JobsTemplateUpdateRequest,
+) -> dict[str, int]:
+    """pending 상태의 잡에 현재 CEG 템플릿으로 재생성한 payload를 반영한다.
+
+    Apply regenerated prompt/workflow/meta/template payloads to pending jobs.
+    Jobs that are no longer pending are skipped.
+    """
+    updated, skipped = await job_manager.update_pending_jobs_template(
+        req.replacements
+    )
+    return {"updated": updated, "skipped": skipped}
 
 
 @app.delete("/jobs/{job_id}")
@@ -1226,6 +1429,210 @@ async def images_upload(file: UploadFile) -> dict[str, str]:
     return {"hash": sha, "filename": file.filename, "name": f"{sha}{ext}"}
 
 
+# ====== 이미지 편집기 (객체 제거 / 결과 저장) ======
+
+
+@app.post("/saved-images/upload")
+async def saved_images_upload(
+    file: UploadFile,
+    parent_hash: Optional[str] = Form(None),
+    prompt: Optional[str] = Form(None),
+    meta: Optional[str] = Form(None),
+    ceg_template: Optional[str] = Form(None),
+    workflow: Optional[str] = Form(None),
+) -> dict[str, str]:
+    """이미지 편집기 결과를 saved-images 디렉토리에 영속화한다.
+
+    SHA-256 해시로 저장하고 DB 레코드를 작성한다. job_id는 가상의 "editor" 잡으로
+    기록하여 큐레이션 흐름과 호환되도록 한다.
+
+    Persist an editor result image into the saved-images directory.
+    Stores the file under its SHA-256 hash and writes a DB record.
+    job_id is set to a sentinel "editor" value to stay compatible with curation.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="empty filename")
+    ext = Path(file.filename).suffix.lower() or ".png"
+    try:
+        data = await file.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="failed to read uploaded file")
+    sha = hashlib.sha256(data).hexdigest()
+    DEFAULT_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    target = DEFAULT_IMAGES_DIR / f"{sha}{ext}"
+
+    logger.info(
+        "saved image upload started: filename=%s hash=%s parent_hash=%s size=%s ext=%s",
+        file.filename,
+        sha,
+        parent_hash,
+        len(data),
+        ext,
+    )
+    logger.debug(
+        "saved image upload form payload: hash=%s prompt_len=%d meta_len=%d ceg_template_len=%d workflow_len=%d",
+        sha,
+        len(prompt or ""),
+        len(meta or ""),
+        len(ceg_template or ""),
+        len(workflow or ""),
+    )
+
+    # 폼으로 직접 전달된 값 파싱
+    form_prompt = prompt or ""
+    form_workflow = {}
+    if workflow:
+        try:
+            form_workflow = json.loads(workflow)
+        except Exception:
+            logger.warning(
+                "saved image upload workflow JSON parse failed: hash=%s workflow_len=%d",
+                sha,
+                len(workflow),
+                exc_info=True,
+            )
+    form_ceg_template = ceg_template or ""
+    form_meta = {}
+    if meta:
+        try:
+            form_meta = json.loads(meta)
+        except Exception:
+            logger.warning(
+                "saved image upload meta JSON parse failed: hash=%s meta_len=%d",
+                sha,
+                len(meta),
+                exc_info=True,
+            )
+
+    # 원본 이미지의 메타데이터 복사 시도
+    parent_prompt = ""
+    parent_workflow = {}
+    parent_ceg_template = ""
+    parent_meta = {"source": "image-editor"}
+
+    if parent_hash:
+        try:
+            parent_img = await job_manager._store.get_saved_image(parent_hash)
+            if parent_img:
+                parent_prompt = parent_img.get("prompt", "")
+                parent_workflow = parent_img.get("workflow", {}) or {}
+                parent_ceg_template = parent_img.get("cegTemplate", "")
+                orig_meta = parent_img.get("meta", {}) or {}
+                if isinstance(orig_meta, dict):
+                    parent_meta.update(orig_meta)
+        except Exception:
+            logger.exception("saved-images/upload 원본 메타데이터 조회 실패: parent_hash=%s", parent_hash)
+
+    # 폼에서 전달받은 값 우선 적용 및 병합
+    final_prompt = form_prompt or parent_prompt
+    final_workflow = form_workflow or parent_workflow
+    final_ceg_template = form_ceg_template or parent_ceg_template
+    
+    final_meta = {}
+    final_meta.update(parent_meta)
+    final_meta.update(form_meta)
+
+    logger.debug(
+        "saved image upload resolved metadata: hash=%s prompt_len=%d workflow_keys=%s ceg_template_len=%d meta=%s",
+        sha,
+        len(final_prompt or ""),
+        sorted((final_workflow or {}).keys()),
+        len(final_ceg_template or ""),
+        final_meta,
+    )
+
+    # 1. 파일 저장 (PNG인 경우 메타데이터 주입)
+    if not target.exists():
+        try:
+            if ext == ".png":
+                from PIL import Image
+                from PIL.PngImagePlugin import PngInfo
+                img = Image.open(io.BytesIO(data))
+                pnginfo = PngInfo()
+                if final_prompt:
+                    pnginfo.add_text("prompt", final_prompt)
+                if final_workflow:
+                    pnginfo.add_text("workflow", json.dumps(final_workflow))
+                img.save(target, "PNG", pnginfo=pnginfo)
+            else:
+                target.write_bytes(data)
+        except Exception:
+            logger.warning(
+                "saved image metadata write failed; falling back to raw file write: hash=%s target=%s",
+                sha,
+                target,
+                exc_info=True,
+            )
+            try:
+                target.write_bytes(data)
+            except OSError:
+                logger.exception("saved image raw file write failed: hash=%s target=%s", sha, target)
+                raise HTTPException(status_code=500, detail="failed to save file to disk")
+
+    # 2. DB 레코드 생성
+    try:
+        await job_manager._store.save_image_record(
+            hash=sha,
+            job_id="editor",
+            original_filename=file.filename,
+            comfy_filename=f"{sha}{ext}",
+            subfolder="",
+            type_="output",
+            worker_id=None,
+            extension=ext,
+            size_bytes=len(data),
+            prompt=final_prompt,
+            meta=final_meta,
+            ceg_template=final_ceg_template,
+            workflow=final_workflow,
+        )
+    except Exception as e:
+        logger.exception("saved-images/upload DB 기록 실패 (파일은 저장됨): hash=%s", sha)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database record insertion failed: {str(e)}"
+        )
+    logger.info("saved image upload complete: hash=%s filename=%s", sha, file.filename)
+    return {"hash": sha, "filename": file.filename}
+
+
+@app.get("/inpaint/capabilities")
+async def inpaint_capabilities() -> dict[str, object]:
+    """LaMa 객체 제거 기능 지원 여부와 장치를 반환한다.
+
+    Returns LaMa object-removal capability status and device.
+    enabled=false when optional deps (torch/torchvision/PIL/numpy) are missing.
+    """
+    return get_inpaint_capabilities()
+
+
+@app.post("/inpaint/remove")
+async def inpaint_remove(image: UploadFile, mask: UploadFile) -> Response:
+    """LaMa로 객체 제거를 수행한다. image + mask(흰=제거 영역) → 결과 PNG.
+
+    Runs LaMa object removal synchronously. Returns inpainted PNG bytes.
+    Returns 503 when optional LaMa dependencies are not installed.
+    """
+    if not is_inpaint_available():
+        raise HTTPException(
+            status_code=503,
+            detail="LaMa 의존성 미설치 — backend/requirements-inpaint.txt 설치 필요",
+        )
+    try:
+        image_bytes = await image.read()
+        mask_bytes = await mask.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="failed to read uploaded files")
+    if not image_bytes or not mask_bytes:
+        raise HTTPException(status_code=400, detail="image and mask are required")
+    try:
+        result_bytes = await lama_remove_object(image_bytes, mask_bytes)
+    except Exception as exc:
+        logger.exception("LaMa 추론 실패")
+        raise HTTPException(status_code=500, detail=f"inference failed: {exc}") from exc
+    return Response(content=result_bytes, media_type="image/png")
+
+
 
 # ====== 영속 이미지 ======
 
@@ -1256,7 +1663,7 @@ async def saved_images_list(
     total = await job_manager._store.count_saved_images(
         job_id=job_id, status=status, filename=filename, tag=tag
     )
-    items = [SavedImageResponse.model_validate(it) for it in items_raw]
+    items = [SavedImageListItemResponse.model_validate(it) for it in items_raw]
     return SavedImagesListResponse(items=items, limit=limit, offset=offset, total=total)
 
 
@@ -1269,7 +1676,7 @@ async def saved_images_for_job(job_id: str) -> JobSavedImagesResponse:
     items_raw = await job_manager._store.list_saved_images(
         limit=10_000, offset=0, job_id=job_id
     )
-    items = [SavedImageResponse.model_validate(it) for it in items_raw]
+    items = [SavedImageListItemResponse.model_validate(it) for it in items_raw]
     return JobSavedImagesResponse(jobId=job_id, items=items)
 
 
@@ -1309,7 +1716,7 @@ async def saved_image_patch(hash: str, body: CurationPatch) -> SavedImageRespons
     Update curation status (approved/rejected/trashed) or note of a persisted image.
     """
     updated = await job_manager.update_curation(
-        hash, status=body.status, note=body.note
+        hash, status=body.status, note=body.note, meta=body.meta
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="image not found")
@@ -1382,6 +1789,28 @@ async def saved_image_restore(hash: str) -> SavedImageResponse:
     if updated is None:
         raise HTTPException(status_code=404, detail="image not found")
     return updated
+
+
+@app.post("/saved-images/rename", response_model=None)
+async def saved_images_rename(body: FilenameRenameRequest) -> dict[str, JSONValue]:
+    """저장 이미지의 original_filename 부분 문자열을 일괄 치환한다.
+    file_key 오타 수정 등으로 템플릿의 filename이 바뀌어 기존 이미지와
+    매칭이 깨질 때 사용. 필요하면 meta의 축 값도 함께 갱신.
+    dryRun=true면 변경 않고 영향받는 후보만 반환.
+
+    Batch-rename original_filename substrings of saved images. Useful when a
+    template file_key typo fix breaks matching with existing images. Optionally
+    updates an axis value in meta_json. dryRun=true previews without changes.
+    """
+    result = await job_manager._store.rename_filename_group(
+        from_segment=body.fromSegment,
+        to_segment=body.toSegment,
+        axis_name=body.axisName,
+        axis_value_from=body.axisValueFrom,
+        axis_value_to=body.axisValueTo,
+        dry_run=body.dryRun,
+    )
+    return result
 
 
 @app.get("/tags")
@@ -1468,7 +1897,13 @@ async def export_dataset(body: ExportRequest) -> StreamingResponse:
     via 'hash' or 'number' strategy.
     """
     items_all: list[dict[str, JSONValue]] = []
-    if body.filenames:
+    if body.hashes:
+        wanted = set(body.hashes)
+        all_by_hash = await job_manager._store.list_saved_images(
+            limit=100_000, offset=0, status=body.status
+        )
+        items_all = [it for it in all_by_hash if str(it.get("hash", "")) in wanted]
+    elif body.filenames:
         for fn in body.filenames:
             items_all.extend(
                 await job_manager._store.list_saved_images(
@@ -1935,6 +2370,84 @@ async def webhooks_batch_complete(req: BatchCompleteRequest) -> dict[str, bool]:
 # ====== WebSocket ======
 
 
+@app.websocket("/ws")
+async def ws_proxy(websocket: WebSocket, clientId: Optional[str] = None) -> None:
+    """ComfyUI WebSocket 프록시.
+    클라이언트(프론트엔드)의 /ws 연결을 활성 ComfyUI 워커로 투명하게 라우팅/중계한다.
+
+    ComfyUI WebSocket proxy.
+    Transparently routes/proxies the frontend's /ws connection to the active ComfyUI worker.
+    """
+    # 1. 활성 ComfyUI 워커 조회
+    worker = worker_pool.find_idle()
+    if worker is None:
+        for w in worker_pool.all():
+            if w.alive:
+                worker = w
+                break
+
+    if worker is None:
+        try:
+            await websocket.accept()
+            await websocket.close(code=1011, reason="No active ComfyUI worker found")
+        except Exception:
+            logger.debug("failed to close ws proxy request with no active worker", exc_info=True)
+        return
+
+    # ComfyUI 워커의 websocket 주소 생성
+    ws_url = worker.base_url.replace("http://", "ws://").replace("https://", "wss://") + "/ws"
+    if clientId:
+        ws_url += f"?clientId={clientId}"
+
+    try:
+        await websocket.accept()
+    except Exception:
+        logger.debug("ws proxy accept failed: worker=%s url=%s", worker.id, ws_url, exc_info=True)
+        return
+
+    try:
+        logger.info("ws proxy connected: worker=%s url=%s clientId=%s", worker.id, ws_url, clientId)
+        async with websockets.connect(ws_url, max_size=None) as worker_ws:
+            async def forward_to_worker():
+                try:
+                    while True:
+                        msg = await websocket.receive_text()
+                        await worker_ws.send(msg)
+                except WebSocketDisconnect:
+                    logger.debug("ws proxy client disconnected: worker=%s", worker.id)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.debug("ws proxy client-to-worker forwarding stopped: worker=%s", worker.id, exc_info=True)
+
+            async def forward_to_client():
+                try:
+                    async for msg in worker_ws:
+                        if isinstance(msg, str):
+                            await websocket.send_text(msg)
+                        else:
+                            await websocket.send_bytes(msg)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.debug("ws proxy worker-to-client forwarding stopped: worker=%s", worker.id, exc_info=True)
+
+            # 두 작업을 동시에 수행
+            await asyncio.gather(
+                forward_to_worker(),
+                forward_to_client(),
+                return_exceptions=True
+            )
+    except Exception as exc:
+        logger.warning("WS proxy connection to ComfyUI worker failed: %s", exc)
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            logger.debug("ws proxy close failed: worker=%s", worker.id if worker else None, exc_info=True)
+        logger.info("ws proxy disconnected: worker=%s clientId=%s", worker.id if worker else None, clientId)
+
+
 @app.websocket("/ws/events")
 async def ws_events(websocket: WebSocket) -> None:
     """실시간 이벤트 스트리밍 WebSocket 엔드포인트.
@@ -1987,8 +2500,15 @@ async def ws_events(websocket: WebSocket) -> None:
 
 # ====== 정적 파일 서빙 (번들된 프론트엔드) / Static file serving (bundled frontend) ======
 
+# ====== 정적 파일 서빙 (번들된 프론트엔드) / Static file serving (bundled frontend) ======
+
 _static_dir = os.environ.get("CEG_STATIC_DIR")
-if _static_dir and Path(_static_dir).is_dir():
+_has_static = _static_dir and Path(_static_dir).is_dir()
+
+if _has_static:
+    from fastapi.staticfiles import StaticFiles
+    # StaticFiles를 마운트하지 않고 인스턴스를 직접 생성하여 서빙 위임에 사용
+    frontend_static = StaticFiles(directory=_static_dir, html=True)
 
     @app.get("/config.js")
     def _config_js() -> Response:
@@ -2003,6 +2523,95 @@ if _static_dir and Path(_static_dir).is_dir():
             media_type="application/javascript",
         )
 
-    # CEG_STATIC_DIR이 설정되면 빌드된 프론트엔드를 루트에 마운트
-    # Mount the built frontend at root when CEG_STATIC_DIR is set
-    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="frontend")
+# 정의되지 않은 모든 요청을 감지하는 통합 와일드카드 동적 하이브리드 라우터 (개발 및 배포 전 환경에서 상시 등록)
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
+async def dynamic_comfyui_proxy(
+    path: str,
+    request: Request,
+    worker_id: Optional[str] = None,
+) -> Response:
+    # 1. 백엔드 자체 API 경로는 404 처리 (FastAPI 정식 라우터가 먼저 매칭되므로 보통 여기에 안 오지만 안전을 위해)
+    backend_prefixes = [
+        "jobs", "saved-images", "workers", "trash", "tags", 
+        "templates", "render", "workflow", "logs", "db", 
+        "version", "health", "debug", "uploaded_images"
+    ]
+    if any(path.startswith(prefix) for prefix in backend_prefixes):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # clipspace.js의 404 방지를 위한 동적 스텁 반환 (신규 버전 ComfyUI에서 제거됨에 따른 404 해소)
+    if path.endswith("extensions/core/clipspace.js") or path.endswith("clipspace.js"):
+        return Response(
+            "export const ClipspaceDialog = window.ClipspaceDialog || class { static registerButton() {} };",
+            media_type="application/javascript"
+        )
+
+    # 2. 로컬 프론트엔드 정적 파일이 실제 존재하면 정적 파일 서빙 수행 (서빙 디렉터리가 켜져 있는 경우만)
+    if _has_static and path:
+        local_file = Path(_static_dir) / path
+        if local_file.is_file():
+            return await frontend_static(request.scope, receive=None, send=None)
+
+    # 3. 로컬에 파일이 없으면 ComfyUI 워커로 동적 프록시 시도
+    worker = worker_pool.find_idle()
+    if worker is None:
+        for w in worker_pool.all():
+            if w.alive:
+                worker = w
+                break
+
+    if worker is not None:
+        method = request.method
+        params = dict(request.query_params)
+        body = await request.body() if method in ["POST", "PUT", "PATCH"] else None
+        
+        try:
+            req_headers = {}
+            for h in ["content-type", "accept", "authorization"]:
+                if h in request.headers:
+                    req_headers[h] = request.headers[h]
+
+            req = worker._http.build_request(
+                method,
+                f"/{path}",
+                params=params,
+                content=body,
+                headers=req_headers
+            )
+            resp = await worker._http.send(req, stream=True)
+
+            if resp.status_code != 404:
+                async def stream_content():
+                    try:
+                        async for chunk in resp.aiter_bytes():
+                            yield chunk
+                    finally:
+                        await resp.aclose()
+
+                headers = {}
+                for h in ["content-type", "cache-control", "etag", "last-modified"]:
+                    if h in resp.headers:
+                        headers[h] = resp.headers[h]
+
+                    # CORS 헤더 추가 (CORS 다이렉트 통신 허용)
+                    # CORSMiddleware가 정적 스트리밍에도 동작하나 명시적 통제를 보완함
+                    # headers["access-control-allow-origin"] = "*"
+
+                return StreamingResponse(
+                    stream_content(),
+                    status_code=resp.status_code,
+                    headers=headers
+                )
+            await resp.aclose()
+        except Exception as exc:
+            logger.warning("Dynamic proxy to worker failed for /%s: %s", path, exc)
+
+    # 4. 로컬 파일도 없고 워커도 자원을 찾지 못했다면(404), 프론트엔드 SPA fallback index.html 서빙
+    # 단, 정적 리소스 파일(.js, .css, 이미지 등)에 대해서는 index.html 대신 404 상태코드를 정확히 반환하여 클라이언트 측 파싱 에러를 방지한다.
+    if _has_static and not any(path.endswith(ext) for ext in [".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".wasm"]):
+        from fastapi.responses import FileResponse
+        index_file = Path(_static_dir) / "index.html"
+        if index_file.is_file():
+            return FileResponse(str(index_file))
+
+    raise HTTPException(status_code=404, detail="Not found")

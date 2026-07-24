@@ -21,10 +21,10 @@ export const PresetSelectionDialog = ({
   onClose,
   onSelectPreset,
   onStartWithoutMapping,
-}: PresetSelectionDialogProps) => (
+}: PresetSelectionDialogProps): React.JSX.Element => (
   <Dialog
     open={pendingWorkflow !== null}
-    onOpenChange={(open) => {
+    onOpenChange={(open): void => {
       if (!open) onClose()
     }}
   >
@@ -41,7 +41,9 @@ export const PresetSelectionDialog = ({
             key={preset.id}
             variant="outline"
             className="justify-start"
-            onClick={() => onSelectPreset(preset.mappings, preset.id)}
+            onClick={() => {
+              onSelectPreset(preset.mappings, preset.id)
+            }}
           >
             {preset.name}
             <span className="ml-auto text-xs text-muted-foreground">

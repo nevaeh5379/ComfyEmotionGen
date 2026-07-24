@@ -173,6 +173,54 @@ class ComfyWorker(BaseWorker):
             return cast(dict[str, JSONValue], data)
         return {}
 
+    async def get_extensions(self) -> list[str]:
+        """GET /extensions from the ComfyUI server."""
+        try:
+            resp = await self._http.get("/extensions")
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list):
+                return cast(list[str], data)
+        except Exception as exc:
+            logger.warning("worker %s get_extensions failed: %s", self.id, exc)
+        return []
+
+    async def get_history(self, prompt_id: Optional[str] = None) -> dict[str, JSONValue]:
+        """GET /history or GET /history/{prompt_id} from the ComfyUI server."""
+        url = f"/history/{prompt_id}" if prompt_id else "/history"
+        resp = await self._http.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, dict):
+            return cast(dict[str, JSONValue], data)
+        return {}
+
+    async def get_userdata_workflows(self) -> list[JSONValue]:
+        """GET /userdata?dir=workflows/ from the ComfyUI server to list workflow files."""
+        try:
+            resp = await self._http.get("/userdata", params={"dir": "workflows/"})
+        except Exception:
+            resp = await self._http.get("/api/userdata", params={"dir": "workflows/"})
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, list):
+            return cast(list[JSONValue], data)
+        return []
+
+    async def get_userdata_workflow_file(self, filename: str) -> dict[str, JSONValue]:
+        """GET /userdata/workflows/{filename} from the ComfyUI server to fetch file content."""
+        if not filename.endswith(".json"):
+            filename = f"{filename}.json"
+        try:
+            resp = await self._http.get(f"/userdata/workflows/{filename}")
+        except Exception:
+            resp = await self._http.get(f"/api/userdata/workflows/{filename}")
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, dict):
+            return cast(dict[str, JSONValue], data)
+        return {}
+
     # ---------- WebSocket loop ----------
 
     async def _ws_loop(self) -> None:

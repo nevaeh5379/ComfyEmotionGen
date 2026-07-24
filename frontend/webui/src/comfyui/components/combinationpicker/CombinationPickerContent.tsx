@@ -1,5 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react"
 import { useRenderLog } from "@/lib/renderLogger"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -9,7 +18,13 @@ import {
   EmptyTitle,
   EmptyMedia,
 } from "@/components/ui/empty"
-import { AlertTriangleIcon, LayersIcon, SearchXIcon, ArrowUpIcon } from "lucide-react"
+import {
+  AlertTriangleIcon,
+  LayersIcon,
+  SearchXIcon,
+  ArrowUpIcon,
+} from "lucide-react"
+import { hasExportableApproved } from "../../types/Message"
 import {
   Sheet,
   SheetContent,
@@ -21,7 +36,9 @@ import { API, HEADERS } from "@/lib/api"
 import { useSavedWorkflows } from "../../hooks/useSavedWorkflows"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
+import { useSyncedStorage } from "../../hooks/useSyncedStorage"
 import { useLatestRef } from "../../hooks/useLatestRef"
+import { useConfirm } from "../../hooks/useConfirm"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import {
   downloadImagesAsZip,
@@ -29,16 +46,25 @@ import {
 } from "../../utils/downloadImages"
 import type { SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
+import {
+  metaForTarget,
+  type OrphanRecommendation,
+} from "./orphanRecommendations"
 import { RegenerateDialog } from "./CombinationPickerComponents"
 import { ImageViewer } from "../ImageViewer"
 import { ImageDetail } from "../gallery/ImageDetail"
-import { hasApproved, findApproved } from "../../types/Message"
+import { GalleryInpaintEditor } from "../GalleryInpaintEditor"
+import { ImageEditorDialog } from "../image-editor/ImageEditorDialog"
+import { findApproved } from "../../types/Message"
 import { TournamentView } from "./CombinationPickerViews"
 import { GalleryView, TableView } from "./CombinationPickerViews"
-import { useSetToggle } from "./CombinationPickerHelpers"
+
 import { CombinationPickerToolbar } from "./CombinationPickerToolbar"
 import { CombinationPickerUnassignedPanel } from "./CombinationPickerUnassignedPanel"
-import { CombinationPickerSidebar } from "./CombinationPickerSidebar"
+import {
+  CombinationPickerSidebar,
+  type SidebarFilter,
+} from "./CombinationPickerSidebar"
 import { CombinationPickerDetailView } from "./CombinationPickerDetailView"
 import { useCurationContext } from "./CurationContext"
 import type {
@@ -48,7 +74,37 @@ import type {
 import { useCurationToolbar } from "./useCurationToolbar"
 import type { FreeGroupBy } from "./freeCurationGroupers"
 
+function useSetToggle<T>(
+  setValue: Dispatch<SetStateAction<Set<T>>>,
+  onEmpty?: () => void
+): (value: T) => void {
+  return useCallback(
+    (value: T) => {
+      setValue((prev) => {
+        const next = new Set(prev)
+        if (next.has(value)) {
+          next.delete(value)
+          if (next.size === 0 && onEmpty) onEmpty()
+        } else {
+          next.add(value)
+        }
+        return next
+      })
+    },
+    [setValue, onEmpty]
+  )
+}
+
 type ViewMode = CurationViewMode
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target.closest(
+      "input, textarea, select, [contenteditable='true'], .cm-editor, [role='textbox']"
+    ) !== null
+  )
+}
 
 interface CombinationPickerContentProps {
   selectedAxis: string
@@ -57,6 +113,7 @@ interface CombinationPickerContentProps {
   isFreeMode: boolean
   freeGroupMode: FreeGroupBy | null
   toolbarState?: CurationToolbarState
+  onSaveCegTemplate?: (template: string) => void
 }
 
 export const CombinationPickerContent = memo(function CombinationPickerContent({
@@ -66,8 +123,10 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   isFreeMode,
   freeGroupMode,
   toolbarState,
+  onSaveCegTemplate,
 }: CombinationPickerContentProps) {
   useRenderLog("CombinationPickerContent")
+  const confirm = useConfirm()
   const {
     backendUrl,
     savedTemplates,
@@ -81,6 +140,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   const {
     renderItems,
+    rawRenderItems,
     loading,
     error,
     fetchData,
@@ -102,29 +162,53 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const curationToolbarCtx = useCurationToolbar()
 
   // ── State ──
-  const [selectedFilename, setSelectedFilename] = useLocalStorage<string | null>(
-    STORAGE_KEYS.curationSelectedFilename,
-    null
-  )
+  const [selectedFilename, setSelectedFilename] = useLocalStorage<
+    string | null
+  >(STORAGE_KEYS.curationSelectedFilename, null)
   const [detailImage, setDetailImage] = useState<SavedImage | null>(null)
+  const [inpaintImage, setInpaintImage] = useState<SavedImage | null>(null)
+  const [editImage, setEditImage] = useState<SavedImage | null>(null)
+  const [sidebarQuery, setSidebarQuery] = useState("")
+  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>("all")
+
+  const [heldFilenames, setHeldFilenames] = useSyncedStorage<string[]>(
+    STORAGE_KEYS.curationHeldFilenames,
+    []
+  )
+
+  const toggleHoldCuration = useCallback((filename: string) => {
+    setHeldFilenames((prev) => {
+      const next = new Set(prev)
+      if (next.has(filename)) {
+        next.delete(filename)
+        toast.success("보류 상태가 해제되었습니다.")
+      } else {
+        next.add(filename)
+        toast.success("보류 조합으로 지정되었습니다.")
+      }
+      return Array.from(next)
+    })
+  }, [setHeldFilenames])
 
   const exportAction = useAsyncAction(3000)
   const regenAction = useAsyncAction(3000)
 
   // hideTopSection일 때 뷰 모드는 context에서 관리
-  const viewMode = toolbarState?.hideTopSection
-    ? curationToolbarCtx.viewMode
-    : (toolbarState?.viewMode ?? curationToolbarCtx.viewMode)
-  const setViewMode = toolbarState?.hideTopSection
-    ? curationToolbarCtx.setViewMode
-    : (toolbarState?.setViewMode ?? curationToolbarCtx.setViewMode)
+  const viewMode =
+    (toolbarState?.hideTopSection ?? false)
+      ? curationToolbarCtx.viewMode
+      : (toolbarState?.viewMode ?? curationToolbarCtx.viewMode)
+  const setViewMode =
+    (toolbarState?.hideTopSection ?? false)
+      ? curationToolbarCtx.setViewMode
+      : (toolbarState?.setViewMode ?? curationToolbarCtx.setViewMode)
   const [compareImageKeys, setCompareImageKeys] = useState<Set<string>>(
     new Set()
   )
   const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = (): void => {
       if (window.scrollY > 400) {
         setShowScrollTop(true)
       } else {
@@ -132,7 +216,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       }
     }
     window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
+    return (): void => {
+      window.removeEventListener("scroll", handleScroll)
+    }
   }, [])
 
   const scrollToTop = useCallback(() => {
@@ -149,7 +235,13 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   const [regenDialogState, setRegenDialogState] = useState<{
     open: boolean
     sourceImages: SavedImage[]
+    targetItem?: RenderItem
+    targetItems?: RenderItem[]
+    templateOverride?: string
   }>({ open: false, sourceImages: [] })
+  const [cegDraftByFilename, setCegDraftByFilename] = useState<
+    Record<string, string>
+  >({})
 
   // 미할당 이미지(고아) 관리 관련 상태
   const [unassignedSelectedFilenames, setUnassignedSelectedFilenames] =
@@ -159,6 +251,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     Map<string, string[]>
   >(new Map())
   const [checkingTemplates, setCheckingTemplates] = useState(false)
+  const [reconnectingFilename, setReconnectingFilename] = useState<
+    string | null
+  >(null)
   const bulkTrashAction = useAsyncAction(4000)
 
   // ── Refs for latest values ────────────────────────────────────────
@@ -169,7 +264,8 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   // 템플릿 소속 확인 함수 (lazy: 사용자가 패널 열었을 때)
   const checkTemplateAffiliation = useCallback(async () => {
-    if (checkingTemplatesRef.current || savedTemplatesRef.current.length === 0) return
+    if (checkingTemplatesRef.current || savedTemplatesRef.current.length === 0)
+      return
     setCheckingTemplates(true)
     const cache = new Map<string, string[]>()
     try {
@@ -214,12 +310,20 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     } finally {
       setCheckingTemplates(false)
     }
-  }, [])
+  }, [
+    activeTemplateRef,
+    backendUrlRef,
+    checkingTemplatesRef,
+    savedTemplatesRef,
+  ])
 
   // 미할당 패널 열릴 때 템플릿 소속 확인 실행
   useEffect(() => {
-    if (curationToolbarCtx.showUnassignedPanel && templateAffiliationCache.size === 0) {
-      checkTemplateAffiliation()
+    if (
+      curationToolbarCtx.showUnassignedPanel &&
+      templateAffiliationCache.size === 0
+    ) {
+      void checkTemplateAffiliation()
     }
   }, [
     curationToolbarCtx.showUnassignedPanel,
@@ -278,7 +382,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         return trashedCount
       },
       (trashedCount) =>
-        `${selectedCount}개 그룹, ${trashedCount}장 휴지통으로 이동`,
+        `${String(selectedCount)}개 그룹, ${String(trashedCount)}장 휴지통으로 이동`,
       "삭제 실패"
     )
     if (result !== null) {
@@ -300,6 +404,92 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     setAllImages,
   ])
 
+  const reconnectOrphan = useCallback(
+    async (
+      filename: string,
+      images: SavedImage[],
+      recommendation: OrphanRecommendation
+    ): Promise<void> => {
+      if (reconnectingFilename !== null || images.length === 0) return
+      const targetFilename = recommendation.target.filename
+      const axisChanges = recommendation.axisRenames
+        .map((rename) => `${rename.from} → ${rename.to}`)
+        .join(", ")
+      const confirmed = await confirm({
+        title: "고아 이미지를 추천 조합에 연결",
+        description: `${filename}을(를) ${targetFilename}(으)로 변경하고 ${String(images.length)}장의 메타데이터를 갱신합니다.${axisChanges ? ` 감지된 축 변경: ${axisChanges}.` : ""}`,
+        confirmText: "재연결",
+      })
+      if (!confirmed) return
+      setReconnectingFilename(filename)
+      try {
+        const renameBody = {
+          fromSegment: filename,
+          toSegment: targetFilename,
+          axisName: null,
+          axisValueFrom: null,
+          axisValueTo: null,
+        }
+        const previewRes = await fetch(`${backendUrl}/saved-images/rename`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...renameBody, dryRun: true }),
+        })
+        if (!previewRes.ok) throw new Error("파일명 변경 범위를 확인하지 못했습니다.")
+        const preview = (await previewRes.json()) as {
+          updated: { hash: string; oldFilename: string }[]
+        }
+        const expectedHashes = new Set(images.map((image) => image.hash))
+        const scopeIsExact =
+          preview.updated.length === images.length &&
+          preview.updated.every(
+            (item) =>
+              item.oldFilename === filename && expectedHashes.has(item.hash)
+          )
+        if (!scopeIsExact) {
+          throw new Error(
+            "같은 문자열을 포함한 다른 파일이 있어 자동 연결을 중단했습니다."
+          )
+        }
+
+        const renameRes = await fetch(`${backendUrl}/saved-images/rename`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...renameBody, dryRun: false }),
+        })
+        if (!renameRes.ok) throw new Error("파일명 변경에 실패했습니다.")
+
+        const updatedMeta = new Map<string, Record<string, string>>()
+        await Promise.all(
+          images.map(async (image) => {
+            const meta = metaForTarget(image, recommendation.target)
+            updatedMeta.set(image.hash, meta)
+            await curationApi.patchMeta(backendUrl, image.hash, meta)
+          })
+        )
+        setAllImages((prev) =>
+          prev.map((image) => {
+            const meta = updatedMeta.get(image.hash)
+            return meta === undefined
+              ? image
+              : { ...image, originalFilename: targetFilename, meta }
+          })
+        )
+        toast.success(
+          `${filename} → ${targetFilename}: ${String(images.length)}장 재연결 완료`
+        )
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "고아 이미지 재연결 실패"
+        )
+        await fetchData()
+      } finally {
+        setReconnectingFilename(null)
+      }
+    },
+    [backendUrl, confirm, fetchData, reconnectingFilename, setAllImages]
+  )
+
   // 미할당 패널 닫기
   const closeUnassignedPanel = useCallback(() => {
     curationToolbarCtx.setShowUnassignedPanel(false)
@@ -308,7 +498,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   const selectedImages = useMemo(
     () =>
-      (selectedFilename
+      (selectedFilename !== null
         ? (imagesByFilename.get(selectedFilename) ?? [])
         : []
       ).sort((a, b) => a.createdAt - b.createdAt),
@@ -324,18 +514,77 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     [selectedImages, curationToolbarCtx.hideRejected]
   )
 
+  const sidebarFilteredItems = useMemo(() => {
+    const q = sidebarQuery.trim().toLowerCase()
+    // '빈 폴더' 필터는 hideEmptyCurationFolders 설정과 무관하게 빈 폴더를 보여주기 위해
+    // 필터링되지 않은 전체 목록(rawRenderItems)에서 추출한다.
+    const source = sidebarFilter === "empty" ? rawRenderItems : renderItems
+    return source.filter((item) => {
+      const imgs = imagesByFilename.get(item.filename) ?? []
+      const isDone = hasExportableApproved(item.filename, imgs)
+      const isHeld = heldFilenames.includes(item.filename)
+
+      if (sidebarFilter === "done" && !isDone) return false
+      if (sidebarFilter === "pending" && (isDone || isHeld)) return false
+      if (sidebarFilter === "held" && (!isHeld || isDone)) return false
+      if (sidebarFilter === "has-images" && imgs.length === 0) return false
+      if (sidebarFilter === "empty" && imgs.length > 0) return false
+
+      if (q === "") return true
+      const haystack = [
+        item.filename,
+        item.prompt,
+        ...Object.values(item.meta),
+        ...imgs.flatMap((img) => [
+          img.originalFilename,
+          img.prompt,
+          img.status,
+          ...img.tags,
+        ]),
+      ]
+        .join(" ")
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [imagesByFilename, renderItems, rawRenderItems, sidebarFilter, sidebarQuery, heldFilenames])
+
+  const sidebarTotalCount = rawRenderItems.length
+
+  const pendingRenderItems = useMemo(
+    () =>
+      renderItems.filter(
+        (item) =>
+          !hasExportableApproved(
+            item.filename,
+            imagesByFilename.get(item.filename) ?? []
+          )
+      ),
+    [imagesByFilename, renderItems]
+  )
+
   // ── Handlers ──
   const navigateTo = useCallback(
     (direction: "prev" | "next") => {
-      const currentIdx = renderItems.findIndex(
+      if (sidebarFilteredItems.length === 0) return
+      const currentIdx = sidebarFilteredItems.findIndex(
         (ri) => ri.filename === selectedFilename
       )
-      const nextIdx = direction === "next" ? currentIdx + 1 : currentIdx - 1
-      if (nextIdx >= 0 && nextIdx < renderItems.length) {
-        setSelectedFilename(renderItems[nextIdx]!.filename)
+      const nextIdx =
+        currentIdx === -1
+          ? direction === "next"
+            ? 0
+            : sidebarFilteredItems.length - 1
+          : direction === "next"
+            ? currentIdx + 1
+            : currentIdx - 1
+      if (nextIdx >= 0 && nextIdx < sidebarFilteredItems.length) {
+        const item = sidebarFilteredItems[nextIdx]
+        if (item !== undefined) {
+          setSelectedFilename(item.filename)
+        }
       }
     },
-    [renderItems, selectedFilename]
+    [sidebarFilteredItems, selectedFilename, setSelectedFilename]
   )
 
   const handleSelectImage = useCallback(
@@ -349,28 +598,37 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         const next = renderItems.find((ri, idx) => {
           if (idx <= currentIdx) return false
           const nextImgs = imagesByFilename.get(ri.filename) ?? []
-          return !hasApproved(nextImgs)
+          return !hasExportableApproved(ri.filename, nextImgs)
         })
         if (next) setSelectedFilename(next.filename)
       }
     },
-    [approveImage, curationToolbarCtx.autoAdvance, renderItems, imagesByFilename]
+    [
+      approveImage,
+      curationToolbarCtx.autoAdvance,
+      renderItems,
+      imagesByFilename,
+      setSelectedFilename,
+    ]
   )
 
   const handleExport = useCallback(async () => {
     if (exportAction.isLoading || doneCount === 0) return
     await exportAction.execute(
       async () => {
-        const approvedFilenames = renderItems
-          .filter((ri) => hasApproved(imagesByFilename.get(ri.filename) ?? []))
-          .map((ri) => ri.filename)
+        const approvedHashes = renderItems.flatMap((ri) => {
+          const imgs = imagesByFilename.get(ri.filename) ?? []
+          return imgs
+            .filter((img) => img.status === "approved")
+            .map((img) => img.hash)
+        })
         await curationApi.exportDataset(backendUrl, {
-          filenames: approvedFilenames,
+          hashes: approvedHashes,
           duplicateStrategy: curationToolbarCtx.duplicateStrategy,
         })
-        return approvedFilenames.length
+        return approvedHashes.length
       },
-      (count) => `${count}개 파일 내보내기 완료`,
+      (count) => `${String(count)}개 파일 내보내기 완료`,
       "내보내기 실패"
     )
   }, [
@@ -386,17 +644,40 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     (filename: string) => {
       if (isFreeMode && freeGroupMode !== "filename") return
       const images = imagesByFilename.get(filename) ?? []
-      setRegenDialogState({ open: true, sourceImages: images })
+      const draft = cegDraftByFilename[filename]
+      const targetItem = renderItems.find((item) => item.filename === filename)
+      setRegenDialogState({
+        open: true,
+        sourceImages: images,
+        ...(targetItem !== undefined ? { targetItem } : {}),
+        ...(draft !== undefined && draft !== activeTemplate
+          ? { templateOverride: draft }
+          : {}),
+      })
     },
-    [isFreeMode, freeGroupMode, imagesByFilename]
+    [
+      activeTemplate,
+      cegDraftByFilename,
+      freeGroupMode,
+      imagesByFilename,
+      isFreeMode,
+      renderItems,
+    ]
   )
 
   const handleRegenDone = useCallback(() => {
     setRegenDialogState((prev) => ({ ...prev, open: false }))
-    if (regenDialogState.sourceImages.length > 1) {
+    if (
+      regenDialogState.sourceImages.length > 1 ||
+      (regenDialogState.targetItems?.length ?? 0) > 1
+    ) {
       exitSelectionMode()
     }
-  }, [exitSelectionMode, regenDialogState.sourceImages])
+  }, [
+    exitSelectionMode,
+    regenDialogState.sourceImages,
+    regenDialogState.targetItems,
+  ])
 
   const handleOpen = useCallback(
     (filename: string) => {
@@ -404,38 +685,35 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       setSelectedFilename(filename)
       setViewMode("grid")
     },
-    [exitSelectionMode, setViewMode]
+    [exitSelectionMode, setViewMode, setSelectedFilename]
   )
 
-  const handleRejectAll = useCallback(
-    () =>
-      data.batchUpdateStatus(
-        selectedFilename!,
-        (img) => img.status !== "approved" && img.status !== "rejected",
-        "rejected"
-      ),
-    [data, selectedFilename]
-  )
+  const handleRejectAll = useCallback(() => {
+    if (selectedFilename === null) return
+    void data.batchUpdateStatus(
+      selectedFilename,
+      (img) => img.status !== "approved" && img.status !== "rejected",
+      "rejected"
+    )
+  }, [data, selectedFilename])
 
-  const handleCancelAllRejects = useCallback(
-    () =>
-      data.batchUpdateStatus(
-        selectedFilename!,
-        (img) => img.status === "rejected",
-        "pending"
-      ),
-    [data, selectedFilename]
-  )
+  const handleCancelAllRejects = useCallback(() => {
+    if (selectedFilename === null) return
+    void data.batchUpdateStatus(
+      selectedFilename,
+      (img) => img.status === "rejected",
+      "pending"
+    )
+  }, [data, selectedFilename])
 
-  const handleCancelApproval = useCallback(
-    () =>
-      data.batchUpdateStatus(
-        selectedFilename!,
-        (img) => img.status === "approved" || img.status === "rejected",
-        "pending"
-      ),
-    [data, selectedFilename]
-  )
+  const handleCancelApproval = useCallback(() => {
+    if (selectedFilename === null) return
+    void data.batchUpdateStatus(
+      selectedFilename,
+      (img) => img.status === "approved" || img.status === "rejected",
+      "pending"
+    )
+  }, [data, selectedFilename])
 
   // 선택 모드 진입 (long press)
   const handleLongPress = useCallback(
@@ -456,17 +734,113 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       const imgs = imagesByFilename.get(filename) ?? []
       allImages.push(...imgs)
     }
+    const targetItems = renderItems.filter((item) =>
+      selectedFilenames.has(item.filename)
+    )
     setRegenDialogState({
       open: true,
       sourceImages: allImages,
+      targetItems,
     })
-  }, [selectedFilenames, isFreeMode, freeGroupMode, imagesByFilename])
+  }, [
+    selectedFilenames,
+    isFreeMode,
+    freeGroupMode,
+    imagesByFilename,
+    renderItems,
+  ])
+
+  const handleRegeneratePending = useCallback(() => {
+    if (pendingRenderItems.length === 0) return
+    if (isFreeMode && freeGroupMode !== "filename") return
+    const allImages: SavedImage[] = []
+    for (const item of pendingRenderItems) {
+      allImages.push(...(imagesByFilename.get(item.filename) ?? []))
+    }
+    setRegenDialogState({
+      open: true,
+      sourceImages: allImages,
+      targetItems: pendingRenderItems,
+    })
+  }, [
+    freeGroupMode,
+    imagesByFilename,
+    isFreeMode,
+    pendingRenderItems,
+  ])
+
+  const handleRegenerateHeld = useCallback(() => {
+    const heldItems = rawRenderItems.filter(
+      (item) =>
+        heldFilenames.includes(item.filename) &&
+        !hasExportableApproved(
+          item.filename,
+          imagesByFilename.get(item.filename) ?? []
+        )
+    )
+    if (heldItems.length === 0) return
+    if (isFreeMode && freeGroupMode !== "filename") return
+    const allImages: SavedImage[] = []
+    for (const item of heldItems) {
+      allImages.push(...(imagesByFilename.get(item.filename) ?? []))
+    }
+    setRegenDialogState({
+      open: true,
+      sourceImages: allImages,
+      targetItems: heldItems,
+    })
+  }, [
+    freeGroupMode,
+    imagesByFilename,
+    isFreeMode,
+    rawRenderItems,
+    heldFilenames,
+  ])
+
+  const handleRegenerateEmpty = useCallback(() => {
+    const emptyItems = rawRenderItems.filter(
+      (item) => (imagesByFilename.get(item.filename) ?? []).length === 0
+    )
+    if (emptyItems.length === 0) return
+    if (isFreeMode && freeGroupMode !== "filename") return
+    setRegenDialogState({
+      open: true,
+      sourceImages: [],
+      targetItems: emptyItems,
+    })
+  }, [
+    freeGroupMode,
+    imagesByFilename,
+    isFreeMode,
+    rawRenderItems,
+  ])
+
+  const heldRegenerateCount = useMemo(
+    () =>
+      rawRenderItems.filter(
+        (item) =>
+          heldFilenames.includes(item.filename) &&
+          !hasExportableApproved(
+            item.filename,
+            imagesByFilename.get(item.filename) ?? []
+          )
+      ).length,
+    [rawRenderItems, heldFilenames, imagesByFilename]
+  )
+
+  const emptyRegenerateCount = useMemo(
+    () =>
+      rawRenderItems.filter(
+        (item) => (imagesByFilename.get(item.filename) ?? []).length === 0
+      ).length,
+    [rawRenderItems, imagesByFilename]
+  )
 
   const handleBulkDownload = useCallback(async () => {
     if (bulkDownloadAction.isLoading || selectedFilenames.size === 0) return
     await bulkDownloadAction.execute(
       async () => {
-        const downloads: Array<{ url: string; filename: string }> = []
+        const downloads: { url: string; filename: string }[] = []
         for (const filename of selectedFilenames) {
           const imgs = imagesByFilename.get(filename) ?? []
           for (const img of imgs) {
@@ -480,7 +854,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         await downloadImagesAsZip(downloads, "curation-images.zip")
         return downloads.length
       },
-      (count) => `${count}장 다운로드 완료`,
+      (count) => `${String(count)}장 다운로드 완료`,
       "다운로드 실패"
     )
   }, [backendUrl, selectedFilenames, imagesByFilename, bulkDownloadAction])
@@ -500,11 +874,15 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
   // ── Register toolbar handlers with context ──
   useEffect(() => {
-    curationToolbarCtx.setExportHandler(handleExport)
+    curationToolbarCtx.setExportHandler(() => {
+      void handleExport()
+    })
   }, [curationToolbarCtx, handleExport])
 
   useEffect(() => {
-    curationToolbarCtx.setRefreshHandler(fetchData)
+    curationToolbarCtx.setRefreshHandler(() => {
+      void fetchData()
+    })
   }, [curationToolbarCtx, fetchData])
 
   useEffect(() => {
@@ -514,16 +892,21 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
   // autoAdvance 초기값을 autoApplyReject prop에서 동기화
   useEffect(() => {
     if (autoApplyReject) {
-      const timer = window.setTimeout(() => curationToolbarCtx.setAutoAdvance(true), 0)
-      return () => window.clearTimeout(timer)
+      const timer = window.setTimeout(() => {
+        curationToolbarCtx.setAutoAdvance(true)
+      }, 0)
+      return (): void => {
+        window.clearTimeout(timer)
+      }
     }
+    return undefined
   }, [autoApplyReject, curationToolbarCtx])
 
   // ── Keyboard Handler ──
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (regenDialogState.open) return
+      if (isEditableEventTarget(e.target)) return
 
       if (selectionMode) {
         if (e.key === "Escape") {
@@ -532,7 +915,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         return
       }
 
-      if (selectedFilename) {
+      if (selectedFilename !== null) {
         if (e.key === "ArrowDown" || e.key === "j") {
           e.preventDefault()
           navigateTo("next")
@@ -540,20 +923,31 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           e.preventDefault()
           navigateTo("prev")
         } else if (e.key === "r" || e.key === "R") {
+          e.preventDefault()
+          e.stopPropagation()
           handleContextMenuRegenerate(selectedFilename)
+        } else if (e.key === "h" || e.key === "H") {
+          e.preventDefault()
+          e.stopPropagation()
+          toggleHoldCuration(selectedFilename)
         } else if (e.key === "Escape") {
           setSelectedFilename(null)
           setViewMode("gallery")
         } else if (e.key >= "1" && e.key <= "9") {
           const idx = parseInt(e.key) - 1
           if (idx < visibleImages.length) {
-            handleSelectImage(selectedFilename, visibleImages[idx]!.hash)
+            const img = visibleImages[idx]
+            if (img !== undefined) {
+              void handleSelectImage(selectedFilename, img.hash)
+            }
           }
         }
       }
     }
     document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
+    return (): void => {
+      document.removeEventListener("keydown", handleKeyDown)
+    }
   }, [
     selectedFilename,
     navigateTo,
@@ -563,6 +957,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
     selectionMode,
     exitSelectionMode,
     setViewMode,
+    setSelectedFilename,
+    regenDialogState.open,
+    toggleHoldCuration,
   ])
 
   const handleTabChange = useCallback(
@@ -571,8 +968,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       if (v === "gallery" || v === "table") {
         setSelectedFilename(null)
         exitSelectionMode()
-      } else if (!selectedFilename && renderItems.length > 0) {
-        setSelectedFilename(renderItems[0]!.filename)
+      } else if (selectedFilename === null && renderItems.length > 0) {
+        const firstItem = renderItems[0]
+        if (firstItem !== undefined) {
+          setSelectedFilename(firstItem.filename)
+        }
       }
     },
     [
@@ -583,6 +983,29 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       renderItems,
     ]
   )
+
+  const handleCegDraftChange = useCallback(
+    (value: string) => {
+      if (selectedFilename === null) return
+      setCegDraftByFilename((prev) => {
+        if (prev[selectedFilename] === value) return prev
+        return {
+          ...prev,
+          [selectedFilename]: value,
+        }
+      })
+    },
+    [selectedFilename]
+  )
+
+  const handleResetCegDraft = useCallback(() => {
+    if (selectedFilename === null) return
+    setCegDraftByFilename((prev) => {
+      if (prev[selectedFilename] === undefined) return prev
+      const { [selectedFilename]: _removed, ...next } = prev
+      return next
+    })
+  }, [selectedFilename])
 
   // ── Render ──
   if (loading)
@@ -602,7 +1025,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
       </div>
     )
 
-  if (error)
+  if (error !== null)
     return (
       <div className="flex flex-1 items-center justify-center px-4 py-20">
         <Empty className="max-w-md border-destructive/20 bg-destructive/5 shadow-none">
@@ -618,7 +1041,9 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             </EmptyDescription>
           </EmptyHeader>
           <Button
-            onClick={fetchData}
+            onClick={() => {
+              void fetchData()
+            }}
             variant="outline"
             className="mt-4 border-destructive/30 font-bold transition-all hover:bg-destructive/10 hover:text-destructive"
           >
@@ -681,8 +1106,20 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
         showUnassignedPanel={curationToolbarCtx.showUnassignedPanel}
         setShowUnassignedPanel={curationToolbarCtx.setShowUnassignedPanel}
         handleBulkRegenerate={handleBulkRegenerate}
+        handleRegeneratePending={handleRegeneratePending}
+        pendingRegenerateCount={pendingRenderItems.length}
+        pendingRegenerateDisabled={
+          isFreeMode && freeGroupMode !== "filename"
+        }
+        heldFilenames={heldFilenames}
+        handleRegenerateHeld={handleRegenerateHeld}
+        handleRegenerateEmpty={handleRegenerateEmpty}
+        heldRegenerateCount={heldRegenerateCount}
+        emptyRegenerateCount={emptyRegenerateCount}
         bulkRegenActionMessage={bulkRegenAction.message}
-        handleBulkDownload={handleBulkDownload}
+        handleBulkDownload={() => {
+          void handleBulkDownload()
+        }}
         bulkDownloadIsLoading={bulkDownloadAction.isLoading}
         bulkDownloadMessage={bulkDownloadAction.message}
         handleExport={toolbarState?.onExport ?? handleExport}
@@ -705,31 +1142,45 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
             showTrueOrphansOnly={showTrueOrphansOnly}
             setShowTrueOrphansOnly={setShowTrueOrphansOnly}
             checkingTemplates={checkingTemplates}
-            checkTemplateAffiliation={checkTemplateAffiliation}
+            checkTemplateAffiliation={() => {
+              void checkTemplateAffiliation()
+            }}
             unassignedSelectedFilenames={unassignedSelectedFilenames}
             handleUnassignedToggleSelect={handleUnassignedToggleSelect}
             handleUnassignedSelectAll={handleUnassignedSelectAll}
-            handleBulkTrash={handleBulkTrash}
+            handleBulkTrash={() => {
+              void handleBulkTrash()
+            }}
             bulkTrashActionIsLoading={bulkTrashAction.isLoading}
             bulkTrashActionMessage={bulkTrashAction.message}
             closeUnassignedPanel={closeUnassignedPanel}
+            renderItems={rawRenderItems}
+            reconnectOrphan={reconnectOrphan}
+            reconnectingFilename={reconnectingFilename}
           />
         )}
 
         {/* 메인 레이아웃 */}
         <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
           {/* 왼쪽: 조합 리스트 (상세 보기일 때만 노출, 모바일에서는 숨김) */}
-          {selectedFilename && (
+          {selectedFilename !== null && (
             <div className="hidden flex-none py-4 md:flex">
               <CombinationPickerSidebar
                 selectedFilename={selectedFilename}
                 setSelectedFilename={setSelectedFilename}
+                items={sidebarFilteredItems}
+                totalCount={sidebarTotalCount}
+                query={sidebarQuery}
+                setQuery={setSidebarQuery}
+                filter={sidebarFilter}
+                setFilter={setSidebarFilter}
+                heldFilenames={heldFilenames}
               />
             </div>
           )}
 
           {/* 오른쪽: 콘텐츠 영역 */}
-          {!selectedFilename ? (
+          {selectedFilename === null ? (
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               {filteredRenderItems.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center px-4 py-20">
@@ -794,28 +1245,50 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                 selectedApprovedHash={selectedApprovedHash ?? null}
                 compareImageKeys={compareImageKeys}
                 viewMode={viewMode}
+                activeTemplate={activeTemplate}
+                cegDraft={cegDraftByFilename[selectedFilename] ?? activeTemplate}
+                onCegDraftChange={handleCegDraftChange}
+                onResetCegDraft={handleResetCegDraft}
+                onSaveCegDraft={(value) => {
+                  onSaveCegTemplate?.(value)
+                  handleResetCegDraft()
+                }}
                 onBack={() => {
                   setSelectedFilename(null)
                   setViewMode("gallery")
                 }}
                 onSetPreviewHash={setPreviewHash}
                 onToggleCompareImage={toggleCompareImage}
-                onSelectImage={handleSelectImage}
+                onSelectImage={(filename, hash) => {
+                  void handleSelectImage(filename, hash)
+                }}
                 onRegenerate={handleContextMenuRegenerate}
                 regenActionIsLoading={regenAction.isLoading}
                 onRejectAll={handleRejectAll}
                 onCancelAllRejects={handleCancelAllRejects}
                 onCancelApproval={handleCancelApproval}
                 onNavigate={navigateTo}
-                onOpenList={() => setIsMobileSidebarOpen(true)}
-                onOpenDetail={(img) => setDetailImage(img)}
+                onOpenList={() => {
+                  setIsMobileSidebarOpen(true)
+                }}
+                onOpenDetail={(img) => {
+                  setDetailImage(img)
+                }}
+                onInpaint={(img) => {
+                  setInpaintImage(img)
+                }}
+                onEdit={(img) => {
+                  setEditImage(img)
+                }}
+                heldFilenames={heldFilenames}
+                onToggleHold={() => { toggleHoldCuration(selectedFilename); }}
               />
               {viewMode === "tournament" && (
                 <div className="flex-1 overflow-hidden">
                   <TournamentView
                     images={visibleImages}
                     onComplete={(hash) => {
-                      handleSelectImage(selectedFilename, hash)
+                      void handleSelectImage(selectedFilename, hash)
                       setViewMode("grid")
                     }}
                   />
@@ -851,6 +1324,13 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
                   setSelectedFilename(fn)
                   setIsMobileSidebarOpen(false)
                 }}
+                items={sidebarFilteredItems}
+                totalCount={sidebarTotalCount}
+                query={sidebarQuery}
+                setQuery={setSidebarQuery}
+                filter={sidebarFilter}
+                setFilter={setSidebarFilter}
+                heldFilenames={heldFilenames}
               />
             </div>
           </SheetContent>
@@ -858,29 +1338,36 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
         <RegenerateDialog
           open={regenDialogState.open}
-          onOpenChange={(open) =>
+          onOpenChange={(open) => {
             setRegenDialogState((prev) => ({ ...prev, open }))
-          }
+          }}
           sourceImages={regenDialogState.sourceImages}
+          {...(regenDialogState.targetItem !== undefined
+            ? { targetItem: regenDialogState.targetItem }
+            : {})}
+          {...(regenDialogState.targetItems !== undefined
+            ? { targetItems: regenDialogState.targetItems }
+            : {})}
           backendUrl={backendUrl}
-          currentCegTemplate={activeTemplate}
+          currentCegTemplate={regenDialogState.templateOverride ?? activeTemplate}
+          preferCurrentTemplate={regenDialogState.templateOverride !== undefined}
           savedTemplates={savedTemplates}
           savedWorkflows={savedWorkflows}
           saveMappingPreset={saveMappingPreset}
           deleteMappingPreset={deleteMappingPreset}
           onSubmit={async (items) => {
             const result = await regenAction.execute(
-              async () => {
+              async (): Promise<number> => {
                 const res = await fetch(`${backendUrl}${API.jobs.root}`, {
                   method: "POST",
                   headers: HEADERS.json,
                   body: JSON.stringify({ items }),
                 })
-                if (!res.ok) throw new Error(`HTTP ${res.status}`)
-                const data = await res.json()
+                if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+                const data = (await res.json()) as { jobIds?: string[] }
                 return data.jobIds?.length ?? items.length
               },
-              (count) => `작업 ${count}개 추가됨`,
+              (count: number) => `${String(count)}개 작업 추가됨`,
               "재생성 실패"
             )
             if (result !== null) {
@@ -892,9 +1379,11 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
 
         {/* 이미지 미리보기 팝업 */}
         <ImageViewer
-          src={`${backendUrl}/saved-images/${previewHash}`}
+          src={`${backendUrl}/saved-images/${previewHash ?? ""}`}
           isOpen={previewHash !== null}
-          onClose={() => setPreviewHash(null)}
+          onClose={() => {
+            setPreviewHash(null)
+          }}
         />
 
         {/* 이미지 상세 정보 모달 */}
@@ -902,8 +1391,40 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           <ImageDetail
             backendUrl={backendUrl}
             image={detailImage}
-            onClose={() => setDetailImage(null)}
-            onChanged={fetchData}
+            onClose={() => {
+              setDetailImage(null)
+            }}
+            onChanged={() => {
+              void fetchData()
+            }}
+          />
+        )}
+        {inpaintImage !== null && (
+          <GalleryInpaintEditor
+            open
+            backendUrl={backendUrl}
+            imageUrl={`${backendUrl}/saved-images/${inpaintImage.hash}`}
+            filename={getImageFilename(inpaintImage)}
+            sourcePrompt={inpaintImage.prompt}
+            sourceMeta={inpaintImage.meta}
+            onOpenChange={(open) => {
+              if (!open) setInpaintImage(null)
+            }}
+          />
+        )}
+        {editImage !== null && (
+          <ImageEditorDialog
+            open
+            backendUrl={backendUrl}
+            imageUrl={`${backendUrl}/saved-images/${editImage.hash}`}
+            filename={getImageFilename(editImage)}
+            parentHash={editImage.hash}
+            onOpenChange={(open) => {
+              if (!open) setEditImage(null)
+            }}
+            onSaveSuccess={() => {
+              void fetchData()
+            }}
           />
         )}
 
@@ -912,7 +1433,7 @@ export const CombinationPickerContent = memo(function CombinationPickerContent({
           <Button
             onClick={scrollToTop}
             size="sm"
-            className="fixed bottom-6 right-6 z-50 h-10 w-10 rounded-full p-0 shadow-lg border border-border bg-card text-foreground hover:bg-muted active:scale-95 transition-all md:bottom-8 md:right-8"
+            className="fixed right-6 bottom-6 z-50 h-10 w-10 rounded-full border border-border bg-card p-0 text-foreground shadow-lg transition-all hover:bg-muted active:scale-95 md:right-8 md:bottom-8"
           >
             <ArrowUpIcon className="h-5 w-5" />
           </Button>

@@ -1,0 +1,792 @@
+/**
+ * ReactNode - HTML/CSS로 그려지는 리액트 노드 컴포넌트
+ */
+
+import {
+  useRef,
+  useMemo,
+  useLayoutEffect,
+  useState,
+  memo,
+  type ReactNode as ReactNodeType,
+} from "react"
+import { useReactGraphStore } from "@/comfyui/stores/reactGraphStore"
+import { useNodeDefStore } from "@/comfyui/stores/nodeDefStore"
+import { useSubgraphNavigationStore } from "@/comfyui/stores/subgraphNavigationStore"
+import { ReactWidget, type CanvasWidget, type CanvasNode } from "./ReactWidget"
+import { X, Maximize2 } from "lucide-react"
+import type { ComfyNodeInput, ComfyNodeOutput } from "@/comfyui/types/workflow"
+import { widgetStore, type WidgetValue } from "@/comfyui/stores/widgetStore"
+import type { InputSpec } from "@/comfyui/types/nodeDef"
+
+interface LiveWidget {
+  name: string
+  type?: string
+  value?: WidgetValue
+  callback?: ((value: WidgetValue) => void) | null
+  element?: HTMLElement | null
+  options?: Record<string, unknown>
+}
+
+interface LiveSlot {
+  name: string
+  type: string | string[]
+  link?: number | null
+  links?: number[] | null
+  widget?: LiveWidget | null
+}
+
+interface LiveNode {
+  widgets?: LiveWidget[]
+  inputs?: LiveSlot[]
+  outputs?: LiveSlot[]
+  properties?: Record<string, unknown>
+}
+
+interface App {
+  graph?: {
+    getNodeById: (id: number) => LiveNode | undefined
+  }
+  syncGraphNode?: (id: number) => void
+}
+
+function getLiveNode(id: number): LiveNode | undefined {
+  const node = (window as unknown as { app?: App }).app?.graph?.getNodeById(id)
+  if (node) {
+    const wc = (node as unknown as { widgets?: unknown[] }).widgets?.length ?? 0
+    console.log(
+      `[CEG] getLiveNode(id=${String(id)}): found=true widgets=${String(wc)}`
+    )
+  }
+  return node
+}
+
+function getApp(): App | undefined {
+  return (window as unknown as { app?: App }).app
+}
+
+interface ReactNodeProps {
+  id: number
+  type: string
+  pos: [number, number]
+  size: [number, number]
+  selected: boolean
+  mode?: number | undefined
+}
+
+export const ReactNode = memo(function ReactNode({
+  id,
+  type,
+  pos,
+  size,
+  selected,
+  mode,
+}: ReactNodeProps): ReactNodeType {
+  const nodeRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [minHeight, setMinHeight] = useState(80)
+  const sizeRef = useRef(size)
+  useLayoutEffect(() => {
+    sizeRef.current = size
+  })
+
+  const updateNodePos = useReactGraphStore((s) => s.updateNodePos)
+  const updateNodeSize = useReactGraphStore((s) => s.updateNodeSize)
+  const removeNode = useReactGraphStore((s) => s.removeNode)
+  const selectNode = useReactGraphStore((s) => s.selectNode)
+  const updateWidgetValue = useReactGraphStore((s) => s.updateWidgetValue)
+  const changeNodeMode = useReactGraphStore((s) => s.changeNodeMode)
+  const zoom = useReactGraphStore((s) => s.zoom)
+  const executingNodeId = useReactGraphStore((s) => s.executingNodeId)
+  const executedNodeIds = useReactGraphStore((s) => s.executedNodeIds)
+
+  const getNodeDef = useNodeDefStore((s) => s.getNodeDef)
+  const nodeDef = useMemo(() => getNodeDef(type), [type, getNodeDef])
+  const nodeData = useReactGraphStore((s) => s.nodes.find((n) => n.id === id))
+
+  const LGraphEventModeValues = LiteGraph.LGraphEventMode ?? {
+    ALWAYS: 0,
+    NEVER: 2,
+    BYPASS: 4,
+  }
+  const nodeMode = mode ?? nodeData?.mode ?? LGraphEventModeValues.ALWAYS
+  const isBypassed = nodeMode === LGraphEventModeValues.BYPASS
+  const isMuted = nodeMode === LGraphEventModeValues.NEVER
+  const isDisabled = isBypassed || isMuted
+
+  const isExecuting = executingNodeId === id
+  const isExecuted = executedNodeIds.has(id)
+
+  // ─── 정규화된 노드 데이터 (nodeDef fallback 및 liveNode 지원) ──
+  const liveNode = useMemo(() => {
+    return getLiveNode(id)
+  }, [id])
+
+  const { inputs, outputs, widgetNames, widgetSpecs } = useMemo(() => {
+    let names: string[] = []
+    let ins: ComfyNodeInput[] = []
+    let outs: ComfyNodeOutput[] = []
+    const specs: Record<string, InputSpec> = {}
+
+    if (liveNode) {
+      if (liveNode.widgets) {
+        names = liveNode.widgets.map((w: LiveWidget) => w.name)
+      }
+      if (liveNode.inputs) {
+        ins = liveNode.inputs.map((slot: LiveSlot) => ({
+          name: slot.name,
+          type: String(slot.type),
+          link: slot.link ?? undefined,
+          widget: slot.widget
+            ? { name: slot.widget.name, config: {} }
+            : undefined,
+        }))
+      }
+      if (liveNode.outputs) {
+        outs = liveNode.outputs.map((slot: LiveSlot, i: number) => ({
+          name: slot.name,
+          type: String(slot.type),
+          links: slot.links ?? undefined,
+          slot_index: i,
+        }))
+      }
+    } else {
+      names = (nodeData?.properties.widget_names as string[] | undefined) ?? []
+      ins = nodeData?.inputs !== undefined ? [...nodeData.inputs] : []
+      outs = nodeData?.outputs !== undefined ? [...nodeData.outputs] : []
+
+      const req = nodeDef?.input?.required ?? {}
+      const opt = nodeDef?.input?.optional ?? {}
+      for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+        const inputSpec = spec
+        const typeSpec = inputSpec[0]
+        const isWidget = widgetStore.isWidgetType(typeSpec)
+        if (isWidget) names.push(name)
+      }
+
+      if (ins.length === 0) {
+        for (const [name, spec] of Object.entries({ ...req, ...opt })) {
+          const inputSpec = spec
+          const typeSpec = inputSpec[0]
+          const isWidget = widgetStore.isWidgetType(typeSpec)
+          ins.push({
+            name,
+            type: String(typeSpec),
+            ...(isWidget
+              ? { widget: { name, config: inputSpec[1] ?? {} } }
+              : {}),
+          })
+        }
+      }
+
+      if (outs.length === 0 && nodeDef) {
+        for (let i = 0; i < nodeDef.output.length; i++) {
+          outs.push({
+            name:
+              nodeDef.output_name[i] ?? nodeDef.output[i] ?? `out_${String(i)}`,
+            type: nodeDef.output[i] ?? "*",
+          })
+        }
+      }
+    }
+
+    // Build spec from nodeDef (ComfyUI format) first, then supplement with liveNode for custom types
+    const defSpecs: Record<string, InputSpec> = {
+      ...(nodeDef?.input?.required ?? {}),
+      ...(nodeDef?.input?.optional ?? {}),
+    }
+    for (const [name, spec] of Object.entries(defSpecs)) {
+      specs[name] = spec
+    }
+    if (liveNode?.widgets) {
+      for (const w of liveNode.widgets) {
+        specs[w.name] ??= [w.type ?? "string", w.options ?? {}]
+      }
+    }
+
+    const nameSet = new Set(names)
+    ins = ins.map((input) => {
+      if (!input.widget && nameSet.has(input.name)) {
+        return { ...input, widget: { name: input.name, config: {} } }
+      }
+      return input
+    })
+
+    return {
+      inputs: ins,
+      outputs: outs,
+      widgetNames: names,
+      widgetSpecs: specs,
+    }
+  }, [nodeDef, nodeData, liveNode])
+
+  useLayoutEffect(() => {
+    const content = contentRef.current
+    if (!content) return
+    const titleBar = content.previousElementSibling as HTMLElement | null
+    const titleBarHeight = titleBar?.offsetHeight ?? 28
+    const contentHeight = titleBarHeight + content.scrollHeight
+    setMinHeight((prev) => {
+      if (Math.abs(prev - contentHeight) > 1.5) {
+        return contentHeight
+      }
+      return prev
+    })
+    if (contentHeight - sizeRef.current[1] > 2) {
+      updateNodeSize(id, [sizeRef.current[0], contentHeight])
+    }
+  }, [id, updateNodeSize, inputs.length, outputs.length, widgetNames.length])
+
+  // ResizeObserver: 자식 요소 크기 변화 시 노드 높이도 같이 늘리고 minHeight 갱신
+  useLayoutEffect(() => {
+    const content = contentRef.current
+    if (!content) return
+    const titleBar = content.previousElementSibling as HTMLElement | null
+
+    const measureContentHeight = (): number => {
+      let childrenHeight = 0
+      const children = content.children
+      for (const child of children) {
+        childrenHeight += (child as HTMLElement).offsetHeight
+      }
+      if (children.length > 1) childrenHeight += (children.length - 1) * 2 // gap-0.5
+      childrenHeight += 8 // py-1 padding
+      return (titleBar?.offsetHeight ?? 28) + childrenHeight
+    }
+
+    const observer = new ResizeObserver(() => {
+      const contentHeight = measureContentHeight()
+      setMinHeight((prev) => {
+        if (Math.abs(prev - contentHeight) > 1.5) {
+          return contentHeight
+        }
+        return prev
+      })
+      if (contentHeight - sizeRef.current[1] > 2) {
+        updateNodeSize(id, [sizeRef.current[0], contentHeight])
+      }
+    })
+
+    const observeAllChildren = (): void => {
+      for (const child of content.children) {
+        observer.observe(child)
+      }
+    }
+    observeAllChildren()
+
+    // 새 자식이 추가되면 (DOM widget mount 등) observe
+    const mutationObserver = new MutationObserver(() => {
+      observeAllChildren()
+    })
+    mutationObserver.observe(content, { childList: true })
+
+    return (): void => {
+      observer.disconnect()
+      mutationObserver.disconnect()
+    }
+  }, [id, updateNodeSize])
+
+  // ─── 이동 드래그 ────────────────────────────────────────────
+  const handleHeaderMouseDown = (e: React.MouseEvent): void => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+
+    useReactGraphStore.getState().takeSnapshot()
+    selectNode(id, e.ctrlKey || e.metaKey)
+
+    const startX = pos[0],
+      startY = pos[1]
+    const startMX = e.clientX,
+      startMY = e.clientY
+
+    const onMove = (ev: MouseEvent): void => {
+      updateNodePos(id, [
+        Math.round(startX + (ev.clientX - startMX) / zoom),
+        Math.round(startY + (ev.clientY - startMY) / zoom),
+      ])
+    }
+    const onUp = (): void => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
+  // ─── 너비 리사이즈 (우측 핸들) ──────────────────────────────
+  const handleRightResize = (e: React.MouseEvent): void => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const startW = size[0],
+      startMX = e.clientX
+
+    const onMove = (ev: MouseEvent): void => {
+      const nextW = Math.max(
+        180,
+        Math.round(startW + (ev.clientX - startMX) / zoom)
+      )
+      updateNodeSize(id, [nextW, size[1]])
+    }
+    const onUp = (): void => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
+  // ─── 높이 리사이즈 (하단 핸들) ──────────────────────────────
+  const handleBottomResize = (e: React.MouseEvent): void => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const startH = size[1],
+      startMY = e.clientY
+
+    const onMove = (ev: MouseEvent): void => {
+      const nextH = Math.max(
+        minHeight,
+        Math.round(startH + (ev.clientY - startMY) / zoom)
+      )
+      updateNodeSize(id, [size[0], nextH])
+    }
+    const onUp = (): void => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
+  // ─── 코너 리사이즈 (우하단 핸들) ────────────────────────────
+  const handleCornerResize = (e: React.MouseEvent): void => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const startW = size[0],
+      startH = size[1]
+    const startMX = e.clientX,
+      startMY = e.clientY
+
+    const onMove = (ev: MouseEvent): void => {
+      const nextW = Math.max(
+        180,
+        Math.round(startW + (ev.clientX - startMX) / zoom)
+      )
+      const nextH = Math.max(
+        minHeight,
+        Math.round(startH + (ev.clientY - startMY) / zoom)
+      )
+      updateNodeSize(id, [nextW, nextH])
+    }
+    const onUp = (): void => {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+    }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
+  // ─── 렌더 ───────────────────────────────────────────────────
+  return (
+    <div
+      ref={nodeRef}
+      data-node-id={id}
+      className={`absolute flex flex-col rounded-lg border shadow-md transition-all duration-300 select-none ${
+        selected
+          ? "border-primary shadow-lg ring-2 ring-primary/25"
+          : isExecuting
+            ? "border-green-500 shadow-[0_0_12px_rgba(34,197,94,0.45)] ring-2 ring-green-500/30"
+            : isMuted
+              ? "border-zinc-700"
+              : "border-border"
+      } ${isMuted ? "opacity-50" : isBypassed ? "opacity-75" : "bg-background/95"}`}
+      style={{
+        left: pos[0],
+        top: pos[1],
+        width: size[0],
+        height: size[1],
+        zIndex: selected ? 100 : 10,
+        minWidth: 180,
+        ...(isBypassed ? { backgroundColor: "rgba(120,120,120,0.35)" } : {}),
+      }}
+      onClick={(e) => {
+        e.stopPropagation()
+        selectNode(id, e.ctrlKey || e.metaKey)
+      }}
+      onDoubleClick={(e) => {
+        // SubgraphNode 인스턴스(type=UUID)인 경우 더블클릭으로 진입
+        if (
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            type
+          )
+        ) {
+          e.stopPropagation()
+          useSubgraphNavigationStore.getState().navigateTo(type)
+        }
+      }}
+    >
+      {/* ── Title bar ─────────────────────────────────────── */}
+      <div
+        onMouseDown={handleHeaderMouseDown}
+        className={`flex shrink-0 cursor-grab items-center justify-between rounded-t-lg border-b px-3 py-1.5 text-xs font-bold text-foreground active:cursor-grabbing ${
+          isMuted
+            ? "border-zinc-700 bg-zinc-800/60"
+            : isBypassed
+              ? "border-zinc-600/50 bg-zinc-600/40"
+              : "border-border bg-muted/65"
+        }`}
+      >
+        <span className="flex items-center gap-1.5 truncate">
+          {isExecuting ? (
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+            </span>
+          ) : isExecuted ? (
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" />
+          ) : null}
+          <span>{nodeDef?.display_name ?? type}</span>
+          {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            type
+          ) && (
+            <button
+              title="Enter subgraph"
+              onClick={(e): void => {
+                e.stopPropagation()
+                useSubgraphNavigationStore.getState().navigateTo(type)
+              }}
+              className="ml-1 cursor-pointer rounded p-0.5 transition-colors hover:bg-zinc-600"
+            >
+              <Maximize2 className="h-3 w-3 text-blue-400" />
+            </button>
+          )}
+        </span>
+        <div className="flex items-center gap-1">
+          {/* ── Mode toggle ── */}
+          <button
+            title={
+              isBypassed
+                ? "Bypass (off)"
+                : isMuted
+                  ? "Muted (off)"
+                  : "Always (on)"
+            }
+            onClick={(e) => {
+              e.stopPropagation()
+              // Cycle: ALWAYS → BYPASS → NEVER → ALWAYS
+              const next = isBypassed
+                ? LGraphEventModeValues.NEVER
+                : isMuted
+                  ? LGraphEventModeValues.ALWAYS
+                  : LGraphEventModeValues.BYPASS
+              changeNodeMode(id, next)
+            }}
+            className={`rounded px-1 py-0.5 text-[9px] leading-none font-bold transition-colors ${
+              isMuted
+                ? "bg-red-950/60 text-red-400 hover:bg-red-900/60"
+                : isBypassed
+                  ? "bg-amber-950/60 text-amber-400 hover:bg-amber-900/60"
+                  : "bg-green-950/60 text-green-400 hover:bg-green-900/60"
+            }`}
+          >
+            {isMuted ? "OFF" : isBypassed ? "BYP" : "ON"}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              removeNode(id)
+            }}
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:text-destructive"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+
+      {isExecuting && (
+        <div className="relative h-0.5 w-full shrink-0 overflow-hidden bg-green-950/40">
+          <div className="h-full w-full animate-pulse bg-green-500" />
+        </div>
+      )}
+
+      {/* ── Content (slots + widgets) ──────────────────────── */}
+      <div
+        ref={contentRef}
+        className="flex flex-1 flex-col gap-0.5 py-1 text-[11px]"
+      >
+        {/* Inputs & Outputs row */}
+        <div className="grid grid-cols-2 gap-2 px-1">
+          {/* Left: Pure Inputs (no widget) */}
+          <div className="flex flex-col items-start gap-0.5">
+            {inputs.map((input, idx) => {
+              if (input.widget) return null
+              return (
+                <div
+                  key={`in-${String(idx)}`}
+                  className="relative flex h-4 items-center gap-1.5 pl-3.5 text-left"
+                >
+                  <div
+                    data-slot-node-id={id}
+                    data-slot-type="input"
+                    data-slot-index={idx}
+                    data-slot-name={input.name}
+                    data-slot-datatype={input.type}
+                    className={`absolute left-0 h-2.5 w-2.5 cursor-crosshair rounded-full border border-background transition-colors ${
+                      input.link !== undefined
+                        ? "bg-green-500"
+                        : "bg-gray-400/70 hover:bg-green-400"
+                    }`}
+                    title={input.type}
+                  />
+                  <span className="max-w-[80px] truncate font-semibold text-muted-foreground">
+                    {input.name}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Right: Outputs */}
+          <div className="ml-auto flex flex-col items-end gap-0.5">
+            {outputs.map((output, idx) => (
+              <div
+                key={`out-${String(idx)}`}
+                className="relative flex h-4 items-center gap-1.5 pr-3.5 text-right"
+              >
+                <span className="max-w-[80px] truncate font-semibold text-muted-foreground">
+                  {output.name}
+                </span>
+                <div
+                  data-slot-node-id={id}
+                  data-slot-type="output"
+                  data-slot-index={idx}
+                  data-slot-name={output.name}
+                  data-slot-datatype={output.type}
+                  className={`absolute right-0 h-2.5 w-2.5 cursor-crosshair rounded-full border border-background transition-colors ${
+                    output.links !== undefined && output.links.length > 0
+                      ? "bg-green-500"
+                      : "bg-gray-400/70 hover:bg-green-400"
+                  }`}
+                  title={output.type}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Widget Inputs (socket + widget inline) */}
+        {inputs.some((i) => i.widget) && (
+          <div className="flex flex-col gap-0 border-t border-border/50 pt-1">
+            {inputs.map((input, idx) => {
+              if (!input.widget) return null
+              const widgetName = input.widget.name
+              const widgetIdx = widgetNames.indexOf(widgetName)
+              const widgetValue =
+                widgetIdx !== -1
+                  ? (nodeData?.widgets_values[widgetIdx] ?? "")
+                  : ""
+
+              return (
+                <div
+                  key={`widget-in-${String(idx)}`}
+                  className="flex flex-col gap-0 py-0.5 pr-2"
+                >
+                  {/* 라벨 — 입력칸 위 */}
+                  <span className="truncate pl-4 text-[10px] font-bold text-muted-foreground">
+                    {widgetName}
+                  </span>
+                  {/* 소켓 + 입력칸 한 줄 */}
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      data-slot-node-id={id}
+                      data-slot-type="input"
+                      data-slot-index={idx}
+                      data-slot-name={input.name}
+                      data-slot-datatype={input.type}
+                      className={`h-2.5 w-2.5 shrink-0 cursor-crosshair rounded-full border border-background transition-colors ${
+                        input.link !== undefined
+                          ? "bg-green-500"
+                          : "bg-gray-400/70 hover:bg-green-400"
+                      }`}
+                      title={input.type}
+                    />
+                    <div className="min-w-0 flex-1">
+                      {input.link !== undefined ? (
+                        <span className="font-mono text-[9px] text-green-500">
+                          linked
+                        </span>
+                      ) : (
+                        ((): React.JSX.Element => {
+                          const liveW = liveNode?.widgets?.find(
+                            (w: LiveWidget) => w.name === widgetName
+                          )
+                          return (
+                            <ReactWidget
+                              name={widgetName}
+                              value={widgetValue}
+                              spec={widgetSpecs[widgetName]}
+                              onChange={(newVal) => {
+                                updateWidgetValue(id, widgetName, newVal)
+                                if (liveW) {
+                                  liveW.value = newVal
+                                  if (liveW.callback) {
+                                    try {
+                                      liveW.callback(newVal)
+                                    } catch (err) {
+                                      console.error(
+                                        "[CEG] input widget callback failed",
+                                        { nodeId: id, widgetName },
+                                        err
+                                      )
+                                    }
+                                  }
+                                }
+                                getApp()?.syncGraphNode?.(id)
+                              }}
+                              showLabel={false}
+                              disabled={isDisabled}
+                              source="input-widget"
+                              element={liveW?.element ?? null}
+                              {...(liveW
+                                ? { widget: liveW as CanvasWidget }
+                                : {})}
+                              {...(liveNode
+                                ? { node: liveNode as CanvasNode }
+                                : {})}
+                            />
+                          )
+                        })()
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Pure widgets not exposed as inputs */}
+        {((): ReactNodeType | null => {
+          const linkedWidgetNames = new Set<string>()
+          for (const i of inputs) {
+            if (i.widget !== undefined) {
+              linkedWidgetNames.add(i.widget.name)
+            }
+          }
+          const pureWidgets = widgetNames.filter(
+            (n) => !linkedWidgetNames.has(n)
+          )
+          if (pureWidgets.length === 0) return null
+          return (
+            <div className="flex flex-col gap-0 border-t border-border/50 pt-1">
+              {pureWidgets.map((name, idx) => (
+                <div
+                  key={`widget-${idx.toString()}-${name}`}
+                  className="px-2 py-0.5"
+                >
+                  {((): React.JSX.Element => {
+                    const occurrence =
+                      pureWidgets
+                        .slice(0, idx + 1)
+                        .filter((widgetName) => widgetName === name).length - 1
+                    const liveW = liveNode?.widgets?.filter(
+                      (w: LiveWidget) => w.name === name
+                    )[occurrence]
+                    return (
+                      <ReactWidget
+                        name={name}
+                        value={
+                          nodeData?.widgets_values[
+                            widgetNames.indexOf(name)
+                          ] ?? ""
+                        }
+                        spec={widgetSpecs[name]}
+                        onChange={(newVal) => {
+                          updateWidgetValue(id, name, newVal)
+                          if (liveW) {
+                            liveW.value = newVal
+                            if (liveW.callback) {
+                              try {
+                                liveW.callback(newVal)
+                              } catch (err) {
+                                console.error(
+                                  "[CEG] pure widget callback failed",
+                                  { nodeId: id, widgetName: name },
+                                  err
+                                )
+                              }
+                            }
+                          }
+                          getApp()?.syncGraphNode?.(id)
+                        }}
+                        disabled={isDisabled}
+                        source="pure-widget"
+                        element={liveW?.element ?? null}
+                        {...(liveW ? { widget: liveW as CanvasWidget } : {})}
+                        {...(liveNode ? { node: liveNode as CanvasNode } : {})}
+                      />
+                    )
+                  })()}
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
+        {/* Custom HTML injected by properties */}
+        {((): ReactNodeType | null => {
+          const rawHtml =
+            liveNode?.properties?.html ??
+            liveNode?.properties?.custom_html ??
+            liveNode?.properties?.text_html ??
+            nodeData?.properties.html ??
+            nodeData?.properties.custom_html
+          const customHtml = typeof rawHtml === "string" ? rawHtml : ""
+          if (!customHtml) return null
+          return (
+            <div
+              className="lm-custom-html max-h-[250px] overflow-auto border-t border-border/50 bg-accent/5 p-2 text-xs text-foreground select-text"
+              dangerouslySetInnerHTML={{ __html: customHtml }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+              }}
+            />
+          )
+        })()}
+      </div>
+
+      {/* ── Resize handles ────────────────────────────────── */}
+      {/* Right edge — width */}
+      <div
+        onMouseDown={handleRightResize}
+        className="absolute top-0 right-0 w-1.5 cursor-ew-resize"
+        style={{ height: "calc(100% - 6px)", top: 0 }}
+      />
+      {/* Bottom edge — height */}
+      <div
+        onMouseDown={handleBottomResize}
+        className="absolute bottom-0 left-0 h-1.5 cursor-ns-resize"
+        style={{ width: "calc(100% - 6px)" }}
+      />
+      {/* Corner — both */}
+      <div
+        onMouseDown={handleCornerResize}
+        className="absolute right-0 bottom-0 flex h-3 w-3 cursor-se-resize items-center justify-center"
+      >
+        <svg width="6" height="6" viewBox="0 0 6 6" className="text-border/70">
+          <path
+            d="M0 6 L6 0 M3 6 L6 3"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+  )
+})

@@ -8,6 +8,7 @@ import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 import type { CurationToolbarState } from "./CurationToolbarTypes"
 import { useSyncedStorage } from "../../hooks/useSyncedStorage"
 import { STORAGE_KEYS } from "../../../lib/storageKeys"
+import { type CurationGroup } from "./CurationToolbarTypes"
 import {
   CURRENT_TEMPLATE_ID,
   DEFAULT_AXIS,
@@ -24,6 +25,13 @@ interface Props {
   hideEmptyCurationFolders?: boolean
   toolbarState?: CurationToolbarState
   fluidGridLayout?: boolean
+  activeGroupId?: string
+  setActiveGroupId?: (id: string) => void
+  activeFilters?: Record<string, string>
+  setActiveFilters?: (filters: Record<string, string>) => void
+  savedGroups?: CurationGroup[]
+  setSavedGroups?: (groups: CurationGroup[]) => void
+  onSaveCegTemplate?: (template: string) => void
 }
 
 export const CombinationPicker = memo(function CombinationPicker({
@@ -36,7 +44,29 @@ export const CombinationPicker = memo(function CombinationPicker({
   hideEmptyCurationFolders = false,
   toolbarState,
   fluidGridLayout = true,
+  activeGroupId,
+  setActiveGroupId,
+  activeFilters,
+  setActiveFilters,
+  savedGroups,
+  setSavedGroups,
+  onSaveCegTemplate,
 }: Props) {
+  const [localActiveGroupId, setLocalActiveGroupId] = useState<string>(
+    "preset:template:__current__"
+  )
+  const [localActiveFilters, setLocalActiveFilters] = useState<
+    Record<string, string>
+  >({})
+  const [localSavedGroups, setLocalSavedGroups] = useState<CurationGroup[]>([])
+
+  const finalActiveGroupId = activeGroupId ?? localActiveGroupId
+  const finalSetActiveGroupId = setActiveGroupId ?? setLocalActiveGroupId
+  const finalActiveFilters = activeFilters ?? localActiveFilters
+  const finalSetActiveFilters = setActiveFilters ?? setLocalActiveFilters
+  const finalSavedGroups = savedGroups ?? localSavedGroups
+  const finalSetSavedGroups = setSavedGroups ?? setLocalSavedGroups
+
   const [internalAxis, setInternalAxis] = useState<string>(DEFAULT_AXIS)
   const selectedAxis = toolbarState?.selectedAxis ?? internalAxis
   const setSelectedAxis = toolbarState?.setSelectedAxis ?? setInternalAxis
@@ -51,12 +81,16 @@ export const CombinationPicker = memo(function CombinationPicker({
   const freeGroupMode = axisValue.kind === "free" ? axisValue.mode : null
 
   const activeTemplate = useMemo(() => {
-    if (axisValue.kind === "free") return ""
-    if (axisValue.templateId === CURRENT_TEMPLATE_ID) return cegTemplate
-    return (
-      savedTemplates.find((t) => t.id === axisValue.templateId)?.template ??
-      cegTemplate
-    )
+    if (
+      axisValue.kind === "template" &&
+      axisValue.templateId !== CURRENT_TEMPLATE_ID
+    ) {
+      return (
+        savedTemplates.find((t) => t.id === axisValue.templateId)?.template ??
+        cegTemplate
+      )
+    }
+    return cegTemplate
   }, [axisValue, cegTemplate, savedTemplates])
 
   const data = useCombinationData({
@@ -64,12 +98,21 @@ export const CombinationPicker = memo(function CombinationPicker({
     activeTemplate,
     freeGroupMode,
     hideEmptyCurationFolders,
+    selectedAxis,
+    setSelectedAxis,
+    activeGroupId: finalActiveGroupId,
+    setActiveGroupId: finalSetActiveGroupId,
+    activeFilters: finalActiveFilters,
+    setActiveFilters: finalSetActiveFilters,
+    savedGroups: finalSavedGroups,
+    setSavedGroups: finalSetSavedGroups,
   })
 
+  const { fetchData } = data
+
   useEffect(() => {
-    data.fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backendUrl, activeTemplate, freeGroupMode])
+    void fetchData()
+  }, [fetchData])
 
   const selection = useCombinationSelection(
     data.filteredRenderItems.map((i) => i.filename)
@@ -95,6 +138,7 @@ export const CombinationPicker = memo(function CombinationPicker({
         activeTemplate={activeTemplate}
         isFreeMode={isFreeMode}
         freeGroupMode={freeGroupMode}
+        {...(onSaveCegTemplate !== undefined ? { onSaveCegTemplate } : {})}
         {...(toolbarState && { toolbarState })}
       />
     </CurationProvider>

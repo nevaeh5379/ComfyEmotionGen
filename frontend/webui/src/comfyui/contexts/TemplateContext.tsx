@@ -65,11 +65,11 @@ export function TemplateProvider({
 }: TemplateProviderProps): React.JSX.Element {
   const { setPendingSave, handlePendingUpdate } = usePendingDialog()
 
-  const [cegTemplate, setCegTemplate, { isDirty: isCegDirty, saveToServer: saveCegToServer, revert: revertCeg }] = useSyncedStorage(
-    STORAGE_KEYS.cegTemplate,
-    "",
-    { manual: true }
-  )
+  const [
+    cegTemplate,
+    setCegTemplate,
+    { isDirty: isCegDirty, saveToServer: saveCegToServer, revert: revertCeg },
+  ] = useSyncedStorage(STORAGE_KEYS.cegTemplate, "", { manual: true })
   const [activeTemplateId, setActiveTemplateId] = useSyncedStorage<
     string | null
   >(STORAGE_KEYS.activeTemplateId, null)
@@ -84,7 +84,7 @@ export function TemplateProvider({
     (name: string, templateContent: string) => {
       try {
         const res = originalSaveTemplate(name, templateContent)
-        saveCegToServer()
+        void saveCegToServer()
         return res
       } catch (err) {
         toast.error("템플릿 저장에 실패했습니다.")
@@ -93,20 +93,19 @@ export function TemplateProvider({
     },
     [originalSaveTemplate, saveCegToServer]
   )
-  const [generatorToolbarProps, setGeneratorToolbarProps] = useState<GeneratorToolbarProps | null>(null)
+  const [generatorToolbarProps, setGeneratorToolbarProps] =
+    useState<GeneratorToolbarProps | null>(null)
 
   const onPendingSave = useCallback(
-    (name: string, type: "template") => setPendingSave({ name, type }),
+    (name: string, type: "template") => {
+      setPendingSave({ name, type })
+    },
     [setPendingSave]
   )
 
   const onPendingUpdate = useCallback(
-    (
-      name: string,
-      type: "template",
-      oldContent: string,
-      newContent: string
-    ) => handlePendingUpdate(name, type, oldContent, newContent),
+    (name: string, type: "template", oldContent: string, newContent: string) =>
+      handlePendingUpdate(name, type, oldContent, newContent),
     [handlePendingUpdate]
   )
 

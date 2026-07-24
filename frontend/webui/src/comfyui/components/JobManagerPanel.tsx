@@ -14,6 +14,8 @@ import {
   AlertCircle,
   ArrowUpRight,
   ExternalLink,
+  RefreshCw,
+  GripHorizontal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -61,11 +63,20 @@ import {
 import { JobDetailSheet } from "./JobDetailSheet"
 import { TagInputSearch } from "./TagInputSearch"
 import { useSettings } from "../hooks/useSettings"
+import { useTemplateContext } from "../contexts/useTemplateContext"
+import { useWorkflowContext } from "../contexts/WorkflowContext"
+import { useNodeMappingContext } from "../contexts/NodeMappingContext"
+import { buildWorkflowForItem } from "@/lib/workflowUtils"
+import type { RenderItem, RenderItemsResponse } from "../types/renderTypes"
 
 // Session utilities
 import type { SessionMarkerRaw, ActiveStateRaw } from "../utils/sessionUtils"
 
 const PAGE_SIZE = JOB_PAGE_SIZE
+const JOB_STATUS_HEIGHT_STORAGE_KEY = "job-manager-status-height"
+const DEFAULT_STATUS_HEIGHT_PERCENT = 38
+const MIN_STATUS_HEIGHT_PERCENT = 15
+const MAX_STATUS_HEIGHT_PERCENT = 75
 
 type SortKey = "filename" | "status" | "createdAt" | "duration"
 type SortDir = "asc" | "desc"
@@ -132,13 +143,17 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   sessionJobCounts,
   sortedMarkers,
   refetchStats,
-}: Props) {
+}: Props): React.JSX.Element {
   useRenderLog("JobManagerPanel")
+
   const confirm = useConfirm()
   const { settings } = useSettings()
+  const { cegTemplate } = useTemplateContext()
+  const { workflowJson } = useWorkflowContext()
+  const { nodeMappings } = useNodeMappingContext()
 
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent): void => {
       if (e.button !== 0) return
       const target = e.target as HTMLElement
       if (target.closest("button, input, select, [role='tab'], a, textarea")) {
@@ -158,6 +173,17 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [searchTags, setSearchTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState("")
   const [showFilters, setShowFilters] = useState(false)
+  const [isUpdatingPendingTemplate, setIsUpdatingPendingTemplate] =
+    useState(false)
+  const [statusHeightPercent, setStatusHeightPercent] = useState(() => {
+    const saved = Number(localStorage.getItem(JOB_STATUS_HEIGHT_STORAGE_KEY))
+    return Number.isFinite(saved) &&
+      saved >= MIN_STATUS_HEIGHT_PERCENT &&
+      saved <= MAX_STATUS_HEIGHT_PERCENT
+      ? saved
+      : DEFAULT_STATUS_HEIGHT_PERCENT
+  })
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // ── pagination state ────────────────────────────────────────────────
   const [desiredPage, setPage] = useState(1)
@@ -168,28 +194,32 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [, setIsLoading] = useState(false)
   const [refetchTick, setRefetchTick] = useState(0)
 
-  const triggerRefetchJobs = useCallback(() => setRefetchTick((t) => t + 1), [])
+  const triggerRefetchJobs = useCallback((): void => {
+    setRefetchTick((t) => t + 1)
+  }, [])
 
   useEffect(() => {
-    const handleRefetch = () => {
+    const handleRefetch = (): void => {
       triggerRefetchJobs()
     }
     window.addEventListener("ceg-refetch-jobs", handleRefetch)
-    return () => window.removeEventListener("ceg-refetch-jobs", handleRefetch)
+    return (): void => {
+      window.removeEventListener("ceg-refetch-jobs", handleRefetch)
+    }
   }, [triggerRefetchJobs])
 
   // 필터 변경 시 page를 1로 함께 초기화하는 래퍼
-  const setFilterTab = (v: FilterTab) => {
+  const setFilterTab = (v: FilterTab): void => {
     setFilterTabState(v)
     setPage(1)
     setSelectedForDelete(new Set())
   }
-  const setDateFrom = (v: string) => {
+  const setDateFrom = (v: string): void => {
     setDateFromState(v)
     setPage(1)
     setSelectedForDelete(new Set())
   }
-  const setDateTo = (v: string) => {
+  const setDateTo = (v: string): void => {
     setDateToState(v)
     setPage(1)
     setSelectedForDelete(new Set())
@@ -205,18 +235,20 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const [fetchedImages, setFetchedImages] = useState<Map<string, string[]>>(
     new Map()
   )
+  const fetchedImagesRef = useRef(fetchedImages)
   const [, setTick] = useState(0)
 
   // ── 세션 시간 범위 계산 ───────────────────────────────────────────
   const sessionRange = useMemo(() => {
-    if (sortedMarkers.length === 0 || !selectedId) return { from: null, to: null }
+    if (sortedMarkers.length === 0 || !selectedId)
+      return { from: null, to: null }
     const targetIdx = sortedMarkers.findIndex((m) => m.id === selectedId)
     if (targetIdx === -1) return { from: null, to: null }
 
     const target = sortedMarkers[targetIdx]
     if (!target) return { from: null, to: null }
 
-    const isCurrentActive = activeState && selectedId === activeState.activeSessionId
+    const isCurrentActive = selectedId === activeState?.activeSessionId
 
     if (isCurrentActive) {
       return {
@@ -291,21 +323,20 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     fetch(`${backendUrl}/jobs?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("jobs fetch failed")
-        return res.json()
+        return res.json() as Promise<{ items?: JobView[]; total?: number }>
       })
       .then((data) => {
         if (aborted) return
-        setPageJobs(data.items || [])
-        setTotalJobsCount(data.total || 0)
+        setPageJobs(data.items ?? [])
+        setTotalJobsCount(data.total ?? 0)
         setIsLoading(false)
       })
-      .catch((err) => {
-        console.warn("작업 목록 조회 실패:", err)
+      .catch((_err: unknown) => {
         if (aborted) return
         setIsLoading(false)
       })
 
-    return () => {
+    return (): void => {
       aborted = true
     }
   }, [
@@ -323,7 +354,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   // 실시간 잡 갱신 감지 및 목록 리프레시 트리거
   const prevActiveJobCountRef = useRef(jobs.length)
-  const prevActiveJobStatusesRef = useRef(jobs.map((j) => `${j.id}:${j.status}`).join(","))
+  const prevActiveJobStatusesRef = useRef(
+    jobs.map((j) => `${j.id}:${j.status}`).join(",")
+  )
 
   useEffect(() => {
     const currentStatuses = jobs.map((j) => `${j.id}:${j.status}`).join(",")
@@ -341,7 +374,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const mergedJobs = useMemo(() => {
     return pageJobs.map((pj) => {
       const active = jobs.find((aj) => aj.id === pj.id)
-      return active ? active : pj
+      return active ?? pj
     })
   }, [pageJobs, jobs])
 
@@ -351,7 +384,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     const prompts = new Set<string>()
     const errors = new Set<string>()
 
-    const tokenize = (str: string) => {
+    const tokenize = (str: string): string[] => {
       if (!str) return []
       return str
         .split(/[\s_\-.,()]+/g)
@@ -366,10 +399,10 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
     pageJobs.forEach((j) => {
       tokenize(j.filename).forEach((t) => filenames.add(t))
-      if (j.prompt) {
+      if (j.prompt !== "") {
         tokenize(j.prompt).forEach((t) => prompts.add(t))
       }
-      if (j.error) {
+      if (j.error !== null && j.error !== "") {
         tokenize(j.error).forEach((t) => errors.add(t))
       }
     })
@@ -457,11 +490,12 @@ export const JobManagerPanel = memo(function JobManagerPanel({
 
   // ── misc computed ───────────────────────────────────────────────────
 
-  const selectedJob = selectedJobId
-    ? (jobs.find((j) => j.id === selectedJobId) ??
-       pageJobs.find((j) => j.id === selectedJobId) ??
-       null)
-    : null
+  const selectedJob =
+    selectedJobId !== null
+      ? (jobs.find((j) => j.id === selectedJobId) ??
+        pageJobs.find((j) => j.id === selectedJobId) ??
+        null)
+      : null
   const hasDateFilter = dateFrom !== "" || dateTo !== ""
   const hasAnyFilter = searchTags.length > 0 || dateFrom !== "" || dateTo !== ""
 
@@ -473,14 +507,18 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   // ── effects ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!runningJobs.length) return
-    const id = setInterval(() => setTick((t) => t + 1), TICK_INTERVAL_MS)
-    return () => clearInterval(id)
+    if (runningJobs.length === 0) return
+    const id = setInterval(() => {
+      setTick((t) => t + 1)
+    }, TICK_INTERVAL_MS)
+    return (): void => {
+      clearInterval(id)
+    }
   }, [runningJobs])
 
   // ── api ─────────────────────────────────────────────────────────────
 
-  const toggleSort = (key: SortKey) => {
+  const toggleSort = (key: SortKey): void => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     else {
       setSortKey(key)
@@ -488,13 +526,54 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleCancel = async (e: React.MouseEvent, jobId: string) => {
-    e.stopPropagation()
+  const resizeStatusPanel = useCallback((clientY: number): void => {
+    const rect = panelRef.current?.getBoundingClientRect()
+    if (rect === undefined || rect.height === 0) return
+    const next = Math.min(
+      MAX_STATUS_HEIGHT_PERCENT,
+      Math.max(
+        MIN_STATUS_HEIGHT_PERCENT,
+        ((clientY - rect.top) / rect.height) * 100
+      )
+    )
+    setStatusHeightPercent(next)
+  }, [])
+
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>): void => {
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      resizeStatusPanel(e.clientY)
+    },
+    [resizeStatusPanel]
+  )
+
+  const saveStatusHeight = useCallback((): void => {
+    localStorage.setItem(
+      JOB_STATUS_HEIGHT_STORAGE_KEY,
+      String(statusHeightPercent)
+    )
+  }, [statusHeightPercent])
+
+  const adjustStatusHeight = useCallback((delta: number): void => {
+    setStatusHeightPercent((current) =>
+      Math.min(
+        MAX_STATUS_HEIGHT_PERCENT,
+        Math.max(MIN_STATUS_HEIGHT_PERCENT, current + delta)
+      )
+    )
+  }, [])
+
+  const handleCancel = async (
+    e: React.MouseEvent | null,
+    jobId: string
+  ): Promise<void> => {
+    e?.stopPropagation()
     try {
       const res = await fetch(`${backendUrl}${API.jobs.detail(jobId)}`, {
         method: "DELETE",
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       triggerRefetchJobs()
       refetchStats?.()
     } catch {
@@ -502,11 +581,16 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleRetry = async (e: React.MouseEvent, jobId: string) => {
+  const handleRetry = async (
+    e: React.MouseEvent,
+    jobId: string
+  ): Promise<void> => {
     e.stopPropagation()
     try {
-      const res = await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, { method: "POST" })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const res = await fetch(`${backendUrl}${API.jobs.retry(jobId)}`, {
+        method: "POST",
+      })
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       triggerRefetchJobs()
       refetchStats?.()
     } catch {
@@ -514,14 +598,17 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleMoveJob = async (jobId: string, targetWorkerId: string) => {
+  const handleMoveJob = async (
+    jobId: string,
+    targetWorkerId: string
+  ): Promise<void> => {
     try {
       const res = await fetch(`${backendUrl}${API.jobs.move(jobId)}`, {
         method: "POST",
         headers: HEADERS.json,
         body: JSON.stringify({ targetWorkerId: targetWorkerId || undefined }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       toast.success("작업이 이동되었습니다.")
       triggerRefetchJobs()
       refetchStats?.()
@@ -530,24 +617,193 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleDeleteOne = async (e: React.MouseEvent, jobId: string) => {
-    e.stopPropagation()
-    if (
-      !(await confirm({
-        title: "작업 삭제",
-        description: "이 작업을 영구 삭제하시겠습니까?",
-        variant: "destructive",
-        confirmText: "삭제",
-      }))
-    )
+  const fetchPendingJobsForSession = useCallback(async (): Promise<
+    JobView[]
+  > => {
+    const params = new URLSearchParams()
+    params.append("limit", "999999")
+    params.append("status", "pending")
+
+    if (sessionRange.from !== null) {
+      params.append("created_at_from", String(sessionRange.from))
+    }
+    if (sessionRange.to !== null) {
+      params.append("created_at_to", String(sessionRange.to))
+    }
+
+    const res = await fetch(`${backendUrl}/jobs?${params.toString()}`)
+    if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+    const data = (await res.json()) as { items?: JobView[] }
+    return data.items ?? []
+  }, [backendUrl, sessionRange])
+
+  const handleUpdatePendingTemplate = useCallback(async (): Promise<void> => {
+    if (isUpdatingPendingTemplate) return
+    if (!workflowJson) {
+      toast.error("워크플로우가 없어 대기 작업을 갱신할 수 없습니다.")
       return
+    }
+    if (!cegTemplate.trim()) {
+      toast.error("CEG 템플릿이 비어 있습니다.")
+      return
+    }
+
+    setIsUpdatingPendingTemplate(true)
+    try {
+      const [pendingJobs, renderRes] = await Promise.all([
+        fetchPendingJobsForSession(),
+        fetch(`${backendUrl}${API.render}`, {
+          method: "POST",
+          headers: HEADERS.json,
+          body: JSON.stringify({ template: cegTemplate }),
+        }),
+      ])
+
+      if (!renderRes.ok) {
+        throw new Error(
+          await renderRes.text().catch(() => renderRes.statusText)
+        )
+      }
+
+      const parsed = (await renderRes.json()) as RenderItemsResponse
+      const renderItemsByFilename = new Map<string, RenderItem[]>()
+      parsed.items.forEach((item) => {
+        const bucket = renderItemsByFilename.get(item.filename) ?? []
+        bucket.push(item)
+        renderItemsByFilename.set(item.filename, bucket)
+      })
+
+      const matchCursor = new Map<string, number>()
+      const replacements = pendingJobs.flatMap((job) => {
+        const bucket = renderItemsByFilename.get(job.filename)
+        if (bucket === undefined || bucket.length === 0) return []
+        const cursor = matchCursor.get(job.filename) ?? 0
+        const item = bucket[cursor % bucket.length]
+        matchCursor.set(job.filename, cursor + 1)
+        if (item === undefined) return []
+
+        const imageNameMap: Record<string, string> = {}
+        const imageUploads: Record<string, Record<string, string>> = {}
+        for (const mapping of nodeMappings) {
+          if (
+            mapping.sourceType === "image" &&
+            mapping.imageValue !== undefined &&
+            mapping.imageValue !== ""
+          ) {
+            imageNameMap[`${mapping.nodeId}.${mapping.inputKey}`] =
+              mapping.imageValue
+            const match = /^__upload__([a-f0-9]{64})\.\w+$/.exec(
+              mapping.imageValue
+            )
+            if (match?.[1] !== undefined && match[1] !== "") {
+              imageUploads[match[1]] = { name: mapping.imageValue }
+            }
+          }
+        }
+
+        return [
+          {
+            jobId: job.id,
+            item: {
+              filename: item.filename,
+              prompt: item.prompt,
+              workflow: buildWorkflowForItem(
+                workflowJson,
+                item,
+                nodeMappings,
+                imageNameMap
+              ),
+              meta: item.meta,
+              cegTemplate,
+              imageUploads,
+              workerType: job.workerType ?? "comfyui",
+              workerId: job.targetWorkerId ?? undefined,
+            },
+          },
+        ]
+      })
+
+      if (pendingJobs.length === 0) {
+        toast.info("갱신할 대기 작업이 없습니다.")
+        return
+      }
+      if (replacements.length === 0) {
+        toast.info("현재 CEG 결과와 파일명이 일치하는 대기 작업이 없습니다.")
+        return
+      }
+
+      const skippedCount = pendingJobs.length - replacements.length
+      const confirmed = await confirm({
+        title: "대기 작업 템플릿 반영",
+        description:
+          skippedCount > 0
+            ? `대기 작업 ${String(replacements.length)}개를 현재 CEG 템플릿으로 갱신합니다. 파일명이 맞지 않는 ${String(skippedCount)}개는 유지됩니다.`
+            : `대기 작업 ${String(replacements.length)}개를 현재 CEG 템플릿으로 갱신합니다.`,
+        confirmText: "반영",
+      })
+      if (!confirmed) return
+
+      const res = await fetch(
+        `${backendUrl}${API.jobs.updatePendingTemplate}`,
+        {
+          method: "POST",
+          headers: HEADERS.json,
+          body: JSON.stringify({ replacements }),
+        }
+      )
+      if (!res.ok) throw new Error(await res.text().catch(() => res.statusText))
+      const result = (await res.json()) as {
+        updated?: number
+        skipped?: number
+      }
+      toast.success(
+        `대기 작업 ${String(result.updated ?? replacements.length)}개를 갱신했습니다.`
+      )
+      if ((result.skipped ?? 0) > 0) {
+        toast.info(
+          `이미 실행 중이거나 완료된 작업 ${String(result.skipped)}개는 제외되었습니다.`
+        )
+      }
+      triggerRefetchJobs()
+      refetchStats?.()
+    } catch (err: unknown) {
+      console.error("Failed to update pending jobs from template:", err)
+      toast.error("대기 작업 템플릿 반영에 실패했습니다.")
+    } finally {
+      setIsUpdatingPendingTemplate(false)
+    }
+  }, [
+    backendUrl,
+    cegTemplate,
+    confirm,
+    fetchPendingJobsForSession,
+    isUpdatingPendingTemplate,
+    nodeMappings,
+    refetchStats,
+    triggerRefetchJobs,
+    workflowJson,
+  ])
+
+  const handleDeleteOne = async (
+    e: React.MouseEvent,
+    jobId: string
+  ): Promise<void> => {
+    e.stopPropagation()
+
+    const confirmed = await confirm({
+      title: "작업 삭제",
+      description: "이 작업을 영구 삭제하시겠습니까?",
+      variant: "destructive",
+      confirmText: "삭제",
+    })
+    if (!confirmed) return
     try {
       const res = await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
         headers: HEADERS.json,
         body: JSON.stringify({ job_ids: [jobId] }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       triggerRefetchJobs()
       refetchStats?.()
     } catch {
@@ -555,24 +811,23 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = async (): Promise<void> => {
     if (selectedForDelete.size === 0) return
-    if (
-      !(await confirm({
-        title: "선택 삭제",
-        description: `선택한 ${selectedForDelete.size}개 작업을 영구 삭제하시겠습니까?`,
-        variant: "destructive",
-        confirmText: "삭제",
-      }))
-    )
-      return
+
+    const confirmed = await confirm({
+      title: "선택 삭제",
+      description: `선택한 ${String(selectedForDelete.size)}개 작업을 영구 삭제하시겠습니까?`,
+      variant: "destructive",
+      confirmText: "삭제",
+    })
+    if (!confirmed) return
     try {
       const res = await fetch(`${backendUrl}${API.jobs.delete}`, {
         method: "POST",
         headers: HEADERS.json,
         body: JSON.stringify({ job_ids: Array.from(selectedForDelete) }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
       setSelectedForDelete(new Set())
       triggerRefetchJobs()
       refetchStats?.()
@@ -581,7 +836,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     }
   }
 
-  const toggleSelectForDelete = (jobId: string) => {
+  const toggleSelectForDelete = (jobId: string): void => {
     setSelectedForDelete((prev) => {
       const next = new Set(prev)
       if (next.has(jobId)) next.delete(jobId)
@@ -590,7 +845,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     })
   }
 
-  const selectAllFailed = () => {
+  const selectAllFailed = (): void => {
     const failedIds = new Set(
       pageJobs
         .filter((j) => j.status === "error" || j.status === "cancelled")
@@ -599,9 +854,11 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     setSelectedForDelete(failedIds)
   }
 
-  const deselectAll = () => setSelectedForDelete(new Set())
+  const deselectAll = (): void => {
+    setSelectedForDelete(new Set())
+  }
 
-  const addSearchTag = (tag: string) => {
+  const addSearchTag = (tag: string): void => {
     const trimmed = tag.trim()
     if (!trimmed) return
     setSearchTags((prev) => {
@@ -613,7 +870,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
     setTagInput("")
   }
 
-  const clearAllFilters = () => {
+  const clearAllFilters = (): void => {
     setSearchTags([])
     setTagInput("")
     setDateFromState("")
@@ -627,19 +884,25 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const fetchingRef = useRef<Set<string>>(new Set())
 
   const fetchJobImages = useCallback(
-    async (jobId: string) => {
-      if (fetchedImages.has(jobId) || fetchingRef.current.has(jobId)) return
+    async (jobId: string): Promise<void> => {
+      if (fetchedImagesRef.current.has(jobId) || fetchingRef.current.has(jobId))
+        return
       fetchingRef.current.add(jobId)
       try {
         const res = await fetch(`${backendUrl}${API.jobs.savedImages(jobId)}`)
         if (res.ok) {
-          const data = await res.json()
-          const hashes: string[] = (data.items ?? []).map(
-            (img: { hash: string }) => img.hash
-          )
+          const data = (await res.json()) as { items?: { hash: string }[] }
+          const hashes: string[] = (data.items ?? []).map((img) => img.hash)
           setFetchedImages((prev) => {
             const next = new Map(prev)
+            next.delete(jobId)
             next.set(jobId, hashes)
+            while (next.size > 50) {
+              const oldestKey = next.keys().next().value
+              if (oldestKey === undefined) break
+              next.delete(oldestKey)
+            }
+            fetchedImagesRef.current = next
             return next
           })
         }
@@ -649,20 +912,20 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         fetchingRef.current.delete(jobId)
       }
     },
-    [backendUrl, fetchedImages]
+    [backendUrl]
   )
 
   const openDetail = useCallback(
-    (jobId: string) => {
+    (jobId: string): void => {
       setSelectedJobId(jobId)
-      fetchJobImages(jobId)
+      void fetchJobImages(jobId)
     },
     [fetchJobImages]
   )
 
   // ── helpers ─────────────────────────────────────────────────────────
 
-  const setQuickDate = (label: string) => {
+  const setQuickDate = (label: string): void => {
     const now = new Date()
     const toStr = now.toISOString().slice(0, 10)
     setDateTo(toStr)
@@ -689,11 +952,19 @@ export const JobManagerPanel = memo(function JobManagerPanel({
   const currentSessionJobCount = sessionJobCounts.get(selectedId) ?? 0
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+    <div
+      ref={panelRef}
+      className="flex h-full min-h-0 flex-col overflow-hidden"
+      style={
+        {
+          "--job-status-height": `${String(statusHeightPercent)}%`,
+        } as React.CSSProperties
+      }
+    >
       {/* 2. Status Content (Mobile status tab OR Desktop always) */}
       <ScrollArea
         className={cn(
-          "shrink-0 border-b border-line bg-panel",
+          "shrink-0 border-b border-line bg-panel md:h-[var(--job-status-height)]",
           mobileTab === "status"
             ? "h-full max-h-none flex-1"
             : "hidden max-h-[85dvh] md:block"
@@ -710,14 +981,66 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               <h3 className="border-b pb-1.5 text-xs font-black tracking-widest text-muted-foreground uppercase">
                 실행 중인 작업
               </h3>
-              <RunningJobsBanner jobs={runningJobs} allJobs={pageJobs} workers={workers} />
+              <RunningJobsBanner
+                jobs={runningJobs}
+                allJobs={pageJobs}
+                workers={workers}
+                onCancelJob={(jobId) => handleCancel(null, jobId)}
+              />
             </div>
           )}
           {mobileTab !== "status" && (
-            <RunningJobsBanner jobs={runningJobs} allJobs={pageJobs} workers={workers} />
+            <RunningJobsBanner
+              jobs={runningJobs}
+              allJobs={pageJobs}
+              workers={workers}
+              onCancelJob={(jobId) => handleCancel(null, jobId)}
+            />
           )}
         </div>
       </ScrollArea>
+
+      <div
+        role="separator"
+        aria-label="작업 상태와 작업 목록 높이 조절"
+        aria-orientation="horizontal"
+        aria-valuemin={MIN_STATUS_HEIGHT_PERCENT}
+        aria-valuemax={MAX_STATUS_HEIGHT_PERCENT}
+        aria-valuenow={Math.round(statusHeightPercent)}
+        tabIndex={0}
+        className="group relative hidden h-2 shrink-0 cursor-row-resize touch-none items-center justify-center bg-line/40 transition-colors outline-none hover:bg-info/15 focus-visible:bg-info/20 md:flex"
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            resizeStatusPanel(e.clientY)
+          }
+        }}
+        onPointerUp={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId)
+          }
+          saveStatusHeight()
+        }}
+        onPointerCancel={saveStatusHeight}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowUp") {
+            e.preventDefault()
+            adjustStatusHeight(-2)
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault()
+            adjustStatusHeight(2)
+          } else if (e.key === "Home") {
+            e.preventDefault()
+            setStatusHeightPercent(MIN_STATUS_HEIGHT_PERCENT)
+          } else if (e.key === "End") {
+            e.preventDefault()
+            setStatusHeightPercent(MAX_STATUS_HEIGHT_PERCENT)
+          }
+        }}
+        onKeyUp={saveStatusHeight}
+      >
+        <GripHorizontal className="h-4 w-4 text-muted-foreground/50 transition-colors group-hover:text-info" />
+      </div>
 
       {/* 3. List Content */}
       <div
@@ -731,7 +1054,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           {/* 1. Status Filter Select */}
           <Select
             value={filterTab}
-            onValueChange={(v) => setFilterTab(v as FilterTab)}
+            onValueChange={(v) => {
+              setFilterTab(v as FilterTab)
+            }}
           >
             <SelectTrigger className="h-8 w-[92px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue />
@@ -833,9 +1158,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     value={
                       dateFrom ? new Date(dateFrom + "T12:00:00") : undefined
                     }
-                    onChange={(d) =>
+                    onChange={(d) => {
                       setDateFrom(d ? format(d, "yyyy-MM-dd") : "")
-                    }
+                    }}
                     placeholder="시작일"
                     className="h-8 flex-1 border-line/50 bg-background text-[11px] shadow-none"
                   />
@@ -844,9 +1169,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   </span>
                   <DatePicker
                     value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
-                    onChange={(d) =>
+                    onChange={(d) => {
                       setDateTo(d ? format(d, "yyyy-MM-dd") : "")
-                    }
+                    }}
                     placeholder="종료일"
                     className="h-8 flex-1 border-line/50 bg-background text-[11px] shadow-none"
                   />
@@ -856,7 +1181,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     variant="outline"
                     size="sm"
                     className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                    onClick={() => setQuickDate("1h")}
+                    onClick={() => {
+                      setQuickDate("1h")
+                    }}
                   >
                     1h
                   </Button>
@@ -864,7 +1191,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     variant="outline"
                     size="sm"
                     className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                    onClick={() => setQuickDate("today")}
+                    onClick={() => {
+                      setQuickDate("today")
+                    }}
                   >
                     오늘
                   </Button>
@@ -872,7 +1201,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     variant="outline"
                     size="sm"
                     className="h-7 flex-1 border-line/50 bg-background text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                    onClick={() => setQuickDate("24h")}
+                    onClick={() => {
+                      setQuickDate("24h")
+                    }}
                   >
                     24h
                   </Button>
@@ -884,7 +1215,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           {/* 3. Sort Key Select */}
           <Select
             value={sortKey}
-            onValueChange={(k) => toggleSort(k as SortKey)}
+            onValueChange={(k) => {
+              toggleSort(k as SortKey)
+            }}
           >
             <SelectTrigger className="h-8 w-[96px] border-line bg-background px-1.5 text-[11px] font-black shadow-none focus:ring-0">
               <SelectValue placeholder="정렬" />
@@ -914,7 +1247,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => toggleSort(sortKey)}
+            onClick={() => {
+              toggleSort(sortKey)
+            }}
             className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
           >
             {sortDir === "asc" ? (
@@ -970,13 +1305,37 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                   size="sm"
                   onValueChange={setTagInput}
                   onAddTag={addSearchTag}
-                  onRemoveTag={(tag) =>
+                  onRemoveTag={(tag) => {
                     setSearchTags((prev) => prev.filter((t) => t !== tag))
-                  }
+                  }}
                 />
               </div>
             </PopoverContent>
           </Popover>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none"
+                disabled={isUpdatingPendingTemplate}
+                onClick={() => {
+                  void handleUpdatePendingTemplate()
+                }}
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    isUpdatingPendingTemplate && "animate-spin"
+                  )}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
+              대기 작업에 현재 CEG 반영
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Unified 1-Line Toolbar (Desktop viewport) */}
@@ -986,7 +1345,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
         >
           <Tabs
             value={filterTab}
-            onValueChange={(v) => setFilterTab(v as FilterTab)}
+            onValueChange={(v) => {
+              setFilterTab(v as FilterTab)
+            }}
             className="shrink-0"
           >
             <TabsList className="h-8 gap-1 bg-muted/50 p-1">
@@ -1032,7 +1393,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             <div className="flex items-center gap-1.5">
               <DatePicker
                 value={dateFrom ? new Date(dateFrom + "T12:00:00") : undefined}
-                onChange={(d) => setDateFrom(d ? format(d, "yyyy-MM-dd") : "")}
+                onChange={(d) => {
+                  setDateFrom(d ? format(d, "yyyy-MM-dd") : "")
+                }}
                 placeholder="시작"
                 className="h-8 w-24 border-line/50 bg-background text-[11px] shadow-none"
               />
@@ -1041,7 +1404,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               </span>
               <DatePicker
                 value={dateTo ? new Date(dateTo + "T12:00:00") : undefined}
-                onChange={(d) => setDateTo(d ? format(d, "yyyy-MM-dd") : "")}
+                onChange={(d) => {
+                  setDateTo(d ? format(d, "yyyy-MM-dd") : "")
+                }}
                 placeholder="종료"
                 className="h-8 w-24 border-line/50 bg-background text-[11px] shadow-none"
               />
@@ -1065,7 +1430,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 variant="outline"
                 size="sm"
                 className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                onClick={() => setQuickDate("1h")}
+                onClick={() => {
+                  setQuickDate("1h")
+                }}
               >
                 1h
               </Button>
@@ -1073,7 +1440,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 variant="outline"
                 size="sm"
                 className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                onClick={() => setQuickDate("today")}
+                onClick={() => {
+                  setQuickDate("today")
+                }}
               >
                 오늘
               </Button>
@@ -1081,7 +1450,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 variant="outline"
                 size="sm"
                 className="h-7 border-line/50 bg-background px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                onClick={() => setQuickDate("24h")}
+                onClick={() => {
+                  setQuickDate("24h")
+                }}
               >
                 24h
               </Button>
@@ -1090,7 +1461,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
             <Button
               size="sm"
               variant={showFilters ? "secondary" : "outline"}
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={() => {
+                setShowFilters(!showFilters)
+              }}
               className="relative hidden h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none md:inline-flex"
             >
               <Filter className="h-3.5 w-3.5" />
@@ -1102,7 +1475,25 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               )}
             </Button>
 
-            {onFloatToggle && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isUpdatingPendingTemplate}
+              onClick={() => {
+                void handleUpdatePendingTemplate()
+              }}
+              className="h-8 shrink-0 gap-1.5 border-line bg-background px-2 text-[11px] font-bold shadow-none"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5",
+                  isUpdatingPendingTemplate && "animate-spin"
+                )}
+              />
+              CEG 반영
+            </Button>
+
+            {onFloatToggle !== undefined && (
               <>
                 <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
                 <Tooltip>
@@ -1113,7 +1504,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                       className="hidden h-8 w-8 shrink-0 border-line bg-background p-0 shadow-none md:inline-flex"
                       onClick={onFloatToggle}
                     >
-                      {isFloating ? (
+                      {isFloating === true ? (
                         <ArrowUpRight className="h-3.5 w-3.5" />
                       ) : (
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -1121,7 +1512,7 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="border border-line bg-popover text-xs font-bold text-popover-foreground">
-                    {isFloating
+                    {isFloating === true
                       ? "원래대로 결합 (Dock)"
                       : "창으로 분리 (Pop out)"}
                   </TooltipContent>
@@ -1142,9 +1533,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
               size="md"
               onValueChange={setTagInput}
               onAddTag={addSearchTag}
-              onRemoveTag={(tag) =>
+              onRemoveTag={(tag) => {
                 setSearchTags((prev) => prev.filter((t) => t !== tag))
-              }
+              }}
             />
             {hasAnyFilter && (
               <Button
@@ -1184,7 +1575,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={handleDeleteSelected}
+                  onClick={() => {
+                    void handleDeleteSelected()
+                  }}
                   className="h-8 px-2 text-[11px] font-bold shadow-md"
                 >
                   삭제({selectedForDelete.size})
@@ -1199,7 +1592,9 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           filterTab={filterTab}
           sortKey={sortKey}
           sortDir={sortDir}
-          onSort={(k) => toggleSort(k as SortKey)}
+          onSort={(k) => {
+            toggleSort(k as SortKey)
+          }}
           pagedJobs={pagedJobs}
           totalPages={totalPages}
           page={page}
@@ -1212,19 +1607,31 @@ export const JobManagerPanel = memo(function JobManagerPanel({
           backendUrl={backendUrl}
           showPagination={totalJobsCount > PAGE_SIZE}
           fetchedImages={fetchedImages}
-          fetchJobImages={(id) => openDetail(id)}
+          fetchJobImages={(id) => {
+            openDetail(id)
+          }}
           workers={workers}
-          onMoveJob={handleMoveJob}
+          onMoveJob={(jobId, targetWorkerId) => {
+            void handleMoveJob(jobId, targetWorkerId)
+          }}
         />
       </div>
       <JobDetailSheet
         job={selectedJob}
         backendUrl={backendUrl}
         fetchedImages={fetchedImages}
-        onClose={() => setSelectedJobId(null)}
-        onCancel={handleCancel}
-        onRetry={handleRetry}
-        onDelete={handleDeleteOne}
+        onClose={() => {
+          setSelectedJobId(null)
+        }}
+        onCancel={(e, id) => {
+          void handleCancel(e, id)
+        }}
+        onRetry={(e, id) => {
+          void handleRetry(e, id)
+        }}
+        onDelete={(e, id) => {
+          void handleDeleteOne(e, id)
+        }}
       />
     </div>
   )

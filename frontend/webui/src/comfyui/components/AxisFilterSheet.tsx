@@ -42,8 +42,9 @@ export const AxisFilterSheet = ({
   axisExcludedItems,
   uncheckedItems,
   toggleItemCheck,
-}: AxisFilterSheetProps) => {
-  const itemKey = (item: RenderItem) => `${item.filename} ${item.prompt}`
+}: AxisFilterSheetProps): React.JSX.Element => {
+  const itemKey = (item: RenderItem): string =>
+    `${item.filename} ${item.prompt}`
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -53,7 +54,7 @@ export const AxisFilterSheet = ({
           <SheetDescription className="text-xs">
             체크 해제된 값은 실행에서 제외됩니다.
             {estimatedRunCount !== null
-              ? ` 현재 ${estimatedRunCount}개 실행 예정.`
+              ? ` 현재 ${String(estimatedRunCount)}개 실행 예정.`
               : ""}
           </SheetDescription>
         </SheetHeader>
@@ -63,7 +64,7 @@ export const AxisFilterSheet = ({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
+                onClick={() => {
                   setAxisValueFilter((prev) => {
                     const allEnabled = Object.values(prev).every((vals) =>
                       Object.values(vals).every(Boolean)
@@ -77,7 +78,7 @@ export const AxisFilterSheet = ({
                       ])
                     )
                   })
-                }
+                }}
               >
                 전체{" "}
                 {Object.values(axisValueFilter).every((vals) =>
@@ -89,7 +90,7 @@ export const AxisFilterSheet = ({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
+                onClick={() => {
                   setAxisValueFilter((prev) =>
                     Object.fromEntries(
                       Object.entries(prev).map(([k, vals]) => [
@@ -100,7 +101,7 @@ export const AxisFilterSheet = ({
                       ])
                     )
                   )
-                }
+                }}
               >
                 초기화
               </Button>
@@ -140,7 +141,9 @@ export const AxisFilterSheet = ({
                   <div key={axis}>
                     <div
                       className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3 py-1.5 select-none"
-                      onClick={() => toggleAxisCollapse(axis)}
+                      onClick={() => {
+                        toggleAxisCollapse(axis)
+                      }}
                     >
                       <span className="w-3 text-xs text-muted-foreground transition-transform">
                         {isCollapsed ? "▸" : "▾"}
@@ -159,7 +162,9 @@ export const AxisFilterSheet = ({
                             ),
                           }))
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
                       />
                       <span className="font-mono text-sm font-semibold">
                         {axis}
@@ -176,7 +181,7 @@ export const AxisFilterSheet = ({
                         >
                           <Checkbox
                             checked={enabled}
-                            onCheckedChange={(checked) =>
+                            onCheckedChange={(checked) => {
                               setAxisValueFilter((prev) => ({
                                 ...prev,
                                 [axis]: {
@@ -184,7 +189,7 @@ export const AxisFilterSheet = ({
                                   [value]: checked === true,
                                 },
                               }))
-                            }
+                            }}
                           />
                           <span
                             className={`font-mono text-xs ${!enabled ? "text-muted-foreground line-through" : ""}`}
@@ -204,20 +209,28 @@ export const AxisFilterSheet = ({
               items={axisExcludedItems}
               accent="text-destructive"
               className="max-h-[40%]"
-              onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
+              onItemClick={(item) => {
+                filterByItem(item, setAxisValueFilter)
+              }}
               showCheckboxes
               getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
-              onToggleItem={(item) => toggleItemCheck(itemKey(item))}
+              onToggleItem={(item) => {
+                toggleItemCheck(itemKey(item))
+              }}
             />
             <PreviewTable
               title="포함된 항목"
               items={axisFilteredItems}
               accent="text-green-600"
-              summary={`전체 ${fakeJobQueue.length}개 중 ${axisFilteredItems.length}개 실행 예정`}
-              onItemClick={(item) => filterByItem(item, setAxisValueFilter)}
+              summary={`전체 ${String(fakeJobQueue.length)}개 중 ${String(axisFilteredItems.length)}개 실행 예정`}
+              onItemClick={(item) => {
+                filterByItem(item, setAxisValueFilter)
+              }}
               showCheckboxes
               getItemChecked={(item) => !uncheckedItems.has(itemKey(item))}
-              onToggleItem={(item) => toggleItemCheck(itemKey(item))}
+              onToggleItem={(item) => {
+                toggleItemCheck(itemKey(item))
+              }}
             />
           </div>
         </div>

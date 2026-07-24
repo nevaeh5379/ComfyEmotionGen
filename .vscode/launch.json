@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/backend/src/run.py",
       "cwd": "${workspaceFolder}/backend",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "${workspaceFolder}/.python/bin/python",
       "justMyCode": true,
       "env": {
         "PYTHONPATH": "${workspaceFolder}"

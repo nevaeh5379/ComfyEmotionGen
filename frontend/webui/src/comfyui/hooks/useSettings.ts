@@ -49,7 +49,13 @@ const DEFAULT_SETTINGS: AppSettings = {
   cycleMinimizedProgress: true,
 }
 
-export const useSettings = () => {
+export const useSettings = (): {
+  settings: AppSettings
+  updateSetting: <K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K]
+  ) => void
+} => {
   const [raw, setRaw] = useSyncedStorage<AppSettings>(
     SETTINGS_KEY,
     DEFAULT_SETTINGS

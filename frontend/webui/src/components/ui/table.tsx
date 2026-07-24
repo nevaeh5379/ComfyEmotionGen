@@ -2,7 +2,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  ...props
+}: React.ComponentProps<"table">): React.JSX.Element {
   return (
     <div
       data-slot="table-container"
@@ -17,7 +20,10 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   )
 }
 
-function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
+function TableHeader({
+  className,
+  ...props
+}: React.ComponentProps<"thead">): React.JSX.Element {
   return (
     <thead
       data-slot="table-header"
@@ -27,7 +33,10 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   )
 }
 
-function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
+function TableBody({
+  className,
+  ...props
+}: React.ComponentProps<"tbody">): React.JSX.Element {
   return (
     <tbody
       data-slot="table-body"
@@ -37,7 +46,10 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   )
 }
 
-function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
+function TableFooter({
+  className,
+  ...props
+}: React.ComponentProps<"tfoot">): React.JSX.Element {
   return (
     <tfoot
       data-slot="table-footer"
@@ -53,7 +65,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.ComponentProps<"tr">
->(({ className, ...props }, ref) => {
+>(({ className, ...props }, ref): React.JSX.Element => {
   return (
     <tr
       ref={ref}
@@ -68,7 +80,10 @@ const TableRow = React.forwardRef<
 })
 TableRow.displayName = "TableRow"
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({
+  className,
+  ...props
+}: React.ComponentProps<"th">): React.JSX.Element {
   return (
     <th
       data-slot="table-head"
@@ -81,7 +96,10 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   )
 }
 
-function TableCell({ className, ...props }: React.ComponentProps<"td">) {
+function TableCell({
+  className,
+  ...props
+}: React.ComponentProps<"td">): React.JSX.Element {
   return (
     <td
       data-slot="table-cell"
@@ -97,7 +115,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
 function TableCaption({
   className,
   ...props
-}: React.ComponentProps<"caption">) {
+}: React.ComponentProps<"caption">): React.JSX.Element {
   return (
     <caption
       data-slot="table-caption"

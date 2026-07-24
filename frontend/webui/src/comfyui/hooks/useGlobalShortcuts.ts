@@ -36,13 +36,13 @@ export function useGlobalShortcuts({
   handleGalleryRefresh,
   setActiveTab,
   toggleShortcuts,
-}: UseGlobalShortcutsOptions) {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+}: UseGlobalShortcutsOptions): void {
+  useEffect((): (() => void) | undefined => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       // Ignore if typing in editable element
       const activeEl = document.activeElement
       const isEditable =
-        activeEl &&
+        activeEl !== null &&
         (activeEl.tagName === "INPUT" ||
           activeEl.tagName === "TEXTAREA" ||
           activeEl.tagName === "SELECT" ||
@@ -55,7 +55,7 @@ export function useGlobalShortcuts({
         return
       }
 
-      const isMac = navigator.platform.includes("Mac")
+      const isMac = navigator.userAgent.includes("Mac")
       const modifier = isMac ? e.metaKey : e.ctrlKey
 
       // Ctrl + Shift + 1..6 or Alt + 1..6 → Switch tabs
@@ -67,6 +67,7 @@ export function useGlobalShortcuts({
         const tabIndex = parseInt(e.key) - 1
         const tabs: TabId[] = [
           "jobs",
+          "editor",
           "stats",
           "gallery",
           "curation",
@@ -78,6 +79,7 @@ export function useGlobalShortcuts({
           setActiveTab(targetTab)
           const tabNames: Record<TabId, string> = {
             jobs: "작업",
+            editor: "워크플로우 에디터",
             stats: "통계",
             gallery: "갤러리",
             curation: "큐레이션",
@@ -123,7 +125,9 @@ export function useGlobalShortcuts({
     }
 
     window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [
     activeTab,
     mobileJobTab,

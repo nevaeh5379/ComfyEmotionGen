@@ -37,7 +37,7 @@ export function ImageViewer({
   onClose,
   alt,
   children,
-}: ImageViewerProps) {
+}: ImageViewerProps): React.JSX.Element | null {
   /* ---- 1. Refs & State ---- */
   const zoomRef = useRef(MIN_ZOOM)
   const panRef = useRef({ x: 0, y: 0 })
@@ -150,7 +150,8 @@ export function ImageViewer({
 
   const prevZoomStep = useCallback((current: number) => {
     for (let i = ZOOM_STEPS.length - 1; i >= 0; i--) {
-      if (ZOOM_STEPS[i]! < current) return ZOOM_STEPS[i]!
+      const step = ZOOM_STEPS[i]
+      if (step !== undefined && step < current) return step
     }
     return MIN_ZOOM
   }, [])
@@ -210,7 +211,7 @@ export function ImageViewer({
       const fitScale = Math.min(cw / imgNatural.w, ch / imgNatural.h, 1)
 
       // Convert container‑space drag coords → image‑space (0..1)
-      const toImg = (cx: number, cy: number) => ({
+      const toImg = (cx: number, cy: number): { x: number; y: number } => ({
         x: (cx - r.imgLeft) / r.imgW,
         y: (cy - r.imgTop) / r.imgH,
       })
@@ -401,24 +402,24 @@ export function ImageViewer({
 
   /* ---- 6. Effects ---- */
   useEffect(() => {
-    const onResize = () =>
+    const onResize = (): void => {
       setWinSize({ w: window.innerWidth, h: window.innerHeight })
+    }
     window.addEventListener("resize", onResize)
-    return () => window.removeEventListener("resize", onResize)
+    return (): void => {
+      window.removeEventListener("resize", onResize)
+    }
   }, [])
 
   /* lock body scroll when open */
   useEffect(() => {
-    if (isOpen) {
-      const computedOverflow = window.getComputedStyle(document.body).overflow
-      if (computedOverflow === "hidden") {
-        return
-      }
-      const originalStyle = document.body.style.overflow
-      document.body.style.overflow = "hidden"
-      return () => {
-        document.body.style.overflow = originalStyle
-      }
+    if (!isOpen) return
+    const computedOverflow = window.getComputedStyle(document.body).overflow
+    if (computedOverflow === "hidden") return
+    const originalStyle = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return (): void => {
+      document.body.style.overflow = originalStyle
     }
   }, [isOpen])
 
@@ -433,27 +434,27 @@ export function ImageViewer({
 
   /* reset on close */
   useEffect(() => {
-    if (!isOpen) {
-      // Use setTimeout to avoid synchronous setState warning in effect
-      const timer = setTimeout(() => {
-        setZoomAndRef(MIN_ZOOM)
-        setPanAndRef({ x: 0, y: 0 })
-        setDragging(false)
-        setShiftSelect(false)
-      }, 0)
+    if (isOpen) return
+    const timer = setTimeout(() => {
+      setZoomAndRef(MIN_ZOOM)
+      setPanAndRef({ x: 0, y: 0 })
+      setDragging(false)
+      setShiftSelect(false)
+    }, 0)
 
-      // Clean up window-level drag listeners if still active
-      if (draggingRef.current) {
-        draggingRef.current = false
-        shiftSelectRef.current = false
-      }
-      return () => clearTimeout(timer)
+    // Clean up window-level drag listeners if still active
+    if (draggingRef.current) {
+      draggingRef.current = false
+      shiftSelectRef.current = false
+    }
+    return (): void => {
+      clearTimeout(timer)
     }
   }, [isOpen, setZoomAndRef, setPanAndRef])
 
   /* track Shift key globally */
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
+    const down = (e: KeyboardEvent): void => {
       if (e.key === "Escape") {
         onClose()
         return
@@ -463,7 +464,7 @@ export function ImageViewer({
         setShiftHeld(true)
       }
     }
-    const up = (e: KeyboardEvent) => {
+    const up = (e: KeyboardEvent): void => {
       if (e.key === "Shift") {
         shiftHeldRef.current = false
         setShiftHeld(false)
@@ -471,7 +472,7 @@ export function ImageViewer({
     }
     window.addEventListener("keydown", down)
     window.addEventListener("keyup", up)
-    return () => {
+    return (): void => {
       window.removeEventListener("keydown", down)
       window.removeEventListener("keyup", up)
     }
@@ -481,7 +482,9 @@ export function ImageViewer({
     if (dragging) {
       window.addEventListener("mousemove", onWindowMouseMove)
       window.addEventListener("mouseup", onWindowMouseUp)
-      return () => {
+    }
+    return (): void => {
+      if (dragging) {
         window.removeEventListener("mousemove", onWindowMouseMove)
         window.removeEventListener("mouseup", onWindowMouseUp)
       }
@@ -503,12 +506,28 @@ export function ImageViewer({
   const selRect: React.CSSProperties | undefined =
     dragging && shiftSelect
       ? {
-          left: `${Math.min(dragStart.x, dragCurrent.x)}px`,
-          top: `${Math.min(dragStart.y, dragCurrent.y)}px`,
-          width: `${Math.abs(dragCurrent.x - dragStart.x)}px`,
-          height: `${Math.abs(dragCurrent.y - dragStart.y)}px`,
+          left: `${String(Math.min(dragStart.x, dragCurrent.x))}px`,
+          top: `${String(Math.min(dragStart.y, dragCurrent.y))}px`,
+          width: `${String(Math.abs(dragCurrent.x - dragStart.x))}px`,
+          height: `${String(Math.abs(dragCurrent.y - dragStart.y))}px`,
         }
       : undefined
+
+  const getImageStyle = (): React.CSSProperties => {
+    const base: React.CSSProperties = { cursor }
+    if (imgNatural.w === 0 || imgNatural.h === 0) return base
+    const aspect = imgNatural.w / imgNatural.h
+    const barH = children !== null && children !== undefined ? 50 : 0
+    const maxW = Math.round(winSize.w * 0.92)
+    const maxH = Math.round(winSize.h * 0.92) - barH
+    let w = maxW
+    let h = Math.round(w / aspect)
+    if (h > maxH) {
+      h = maxH
+      w = Math.round(h * aspect)
+    }
+    return { ...base, width: w, height: h }
+  }
 
   return createPortal(
     <div
@@ -520,11 +539,15 @@ export function ImageViewer({
         }
         onClose()
       }}
-      onWheel={(e) => e.preventDefault()}
+      onWheel={(e) => {
+        e.preventDefault()
+      }}
     >
       <div
         className="relative flex max-h-[92vh] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-white/10 bg-black shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+        }}
       >
         <button
           className="absolute top-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-bad"
@@ -537,25 +560,15 @@ export function ImageViewer({
         <div
           ref={containerRef}
           className="relative flex-shrink-0 overflow-hidden"
-          style={(() => {
-            const base: React.CSSProperties = { cursor }
-            if (imgNatural.w === 0 || imgNatural.h === 0) return base
-            const aspect = imgNatural.w / imgNatural.h
-            const barH = children ? 50 : 0
-            const maxW = Math.round(winSize.w * 0.92)
-            const maxH = Math.round(winSize.h * 0.92) - barH
-            let w = maxW
-            let h = Math.round(w / aspect)
-            if (h > maxH) {
-              h = maxH
-              w = Math.round(h * aspect)
-            }
-            return { ...base, width: w, height: h }
-          })()}
+          style={getImageStyle()}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
-          onMouseEnter={() => setShowLens(true)}
-          onMouseLeave={() => setShowLens(false)}
+          onMouseEnter={() => {
+            setShowLens(true)
+          }}
+          onMouseLeave={() => {
+            setShowLens(false)
+          }}
           onContextMenu={handleContextMenu}
           onWheel={handleWheel}
         >
@@ -565,13 +578,15 @@ export function ImageViewer({
               alt={alt ?? "확대 이미지"}
               className="max-h-full max-w-full select-none"
               style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transform: `translate(${String(pan.x)}px, ${String(pan.y)}px) scale(${String(zoom)})`,
                 transformOrigin: "center center",
                 transition: dragging ? "none" : "transform 0.15s ease-out",
                 opacity: imgStatus === "loaded" ? 1 : 0,
               }}
               draggable={false}
-              onDragStart={(e) => e.preventDefault()}
+              onDragStart={(e) => {
+                e.preventDefault()
+              }}
               onLoad={(e) => {
                 const img = e.currentTarget
                 setImgNaturalAndRef({
@@ -580,7 +595,9 @@ export function ImageViewer({
                 })
                 setImgStatus("loaded")
               }}
-              onError={() => setImgStatus("error")}
+              onError={() => {
+                setImgStatus("error")
+              }}
             />
             {imgStatus !== "loaded" && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/40 text-white/70">
@@ -614,8 +631,8 @@ export function ImageViewer({
                 width: lensSize,
                 height: lensSize,
                 backgroundImage: `url(${src})`,
-                backgroundPosition: `${lensBgPos.x}px ${lensBgPos.y}px`,
-                backgroundSize: `${imgNatural.w * lensZoom}px ${imgNatural.h * lensZoom}px`,
+                backgroundPosition: `${String(lensBgPos.x)}px ${String(lensBgPos.y)}px`,
+                backgroundSize: `${String(imgNatural.w * lensZoom)}px ${String(imgNatural.h * lensZoom)}px`,
                 backgroundRepeat: "no-repeat",
                 borderRadius:
                   lensShape === "circle" ? "50%" : "var(--radius-sm)",
@@ -642,7 +659,9 @@ export function ImageViewer({
                         : "text-white/40 hover:text-white/60"
                     }`}
                     aria-label={lensEnabled ? "돋보기 끄기" : "돋보기 켜기"}
-                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                    }}
                     onClick={(e) => {
                       e.stopPropagation()
                       setLensEnabled(!lensEnabled)
@@ -653,7 +672,9 @@ export function ImageViewer({
                   <button
                     className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-xs font-bold text-white/60 backdrop-blur-sm hover:text-white/90"
                     aria-label="돋보기 설정"
-                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                    }}
                     onClick={(e) => {
                       e.stopPropagation()
                       setShowLensSettings(true)
@@ -666,8 +687,12 @@ export function ImageViewer({
               {showLensSettings && (
                 <div
                   className="flex flex-col gap-2 rounded bg-black/70 px-3 py-2 text-xs font-bold text-white/80 backdrop-blur-sm"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <span className="w-8">크기</span>
@@ -677,9 +702,9 @@ export function ImageViewer({
                       min={80}
                       max={300}
                       value={lensSize}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setLensSizeAndRef(Number(e.target.value))
-                      }
+                      }}
                       className="h-1 w-20 accent-info"
                     />
                     <label htmlFor="lens-size" className="sr-only">
@@ -696,9 +721,9 @@ export function ImageViewer({
                       max={5}
                       step={0.5}
                       value={lensZoom}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setLensZoomAndRef(Number(e.target.value))
-                      }
+                      }}
                       className="h-1 w-20 accent-info"
                     />
                     <label htmlFor="lens-zoom" className="sr-only">
@@ -711,14 +736,18 @@ export function ImageViewer({
                     <button
                       className={`rounded px-2 py-0.5 ${lensShape === "circle" ? "bg-info text-white" : "bg-white/10 text-white/50"}`}
                       aria-label="원형 렌즈"
-                      onClick={() => setLensShape("circle")}
+                      onClick={() => {
+                        setLensShape("circle")
+                      }}
                     >
                       ⭕
                     </button>
                     <button
                       className={`rounded px-2 py-0.5 ${lensShape === "square" ? "bg-info text-white" : "bg-white/10 text-white/50"}`}
                       aria-label="사각형 렌즈"
-                      onClick={() => setLensShape("square")}
+                      onClick={() => {
+                        setLensShape("square")
+                      }}
                     >
                       ⬜
                     </button>
@@ -726,7 +755,9 @@ export function ImageViewer({
                   <button
                     className="self-end text-xs text-white/40 hover:text-white/80"
                     aria-label="설정 닫기"
-                    onClick={() => setShowLensSettings(false)}
+                    onClick={() => {
+                      setShowLensSettings(false)
+                    }}
                   >
                     닫기
                   </button>
@@ -736,7 +767,7 @@ export function ImageViewer({
           </div>
         </div>
 
-        {children && (
+        {children !== null && children !== undefined && (
           <div className="flex items-center justify-center gap-3 border-t border-white/10 bg-black/60 px-6 py-4">
             {children}
           </div>

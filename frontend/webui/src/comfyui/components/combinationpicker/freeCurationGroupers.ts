@@ -64,7 +64,7 @@ function parseFilenameMeta(filename: string): Record<string, string> {
         continue
       }
     }
-    meta[`tag_${fallbackIdx++}`] = token
+    meta[`tag_${String(fallbackIdx++)}`] = token
   }
   return meta
 }
@@ -112,10 +112,13 @@ export function groupSavedImagesAsRenderItems(
   if (mode === "tags") {
     const tagBuckets = new Map<string, Set<string>>()
     for (const img of active) {
-      const tagList = img.tags && img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
+      const tagList: string[] = img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
       for (const tag of tagList) {
         if (!tagBuckets.has(tag)) tagBuckets.set(tag, new Set())
-        tagBuckets.get(tag)!.add(img.originalFilename)
+        const bucket = tagBuckets.get(tag)
+        if (bucket) {
+          bucket.add(img.originalFilename)
+        }
       }
     }
     return Array.from(tagBuckets.entries()).map(([tag, filenames]) => ({
@@ -132,7 +135,10 @@ export function groupSavedImagesAsRenderItems(
     const key = tpl === "" ? NO_TEMPLATE_KEY : shortHash(tpl)
     const label = tpl === "" ? NO_TEMPLATE_KEY : `template:${key}`
     if (!tplBuckets.has(key)) tplBuckets.set(key, { label, files: new Set() })
-    tplBuckets.get(key)!.files.add(img.originalFilename)
+    const tplBucket = tplBuckets.get(key)
+    if (tplBucket) {
+      tplBucket.files.add(img.originalFilename)
+    }
   }
   return Array.from(tplBuckets.entries()).map(([key, { label, files }]) => ({
     filename: label,
@@ -151,9 +157,12 @@ export function buildImagesByGroupKey(
   const map = new Map<string, SavedImage[]>()
   const active = images.filter((img) => img.status !== "trashed")
 
-  const push = (key: string, img: SavedImage) => {
+  const push = (key: string, img: SavedImage): void => {
     if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(img)
+    const arr = map.get(key)
+    if (arr) {
+      arr.push(img)
+    }
   }
 
   if (mode === "filename" || mode === "parsedFilename") {
@@ -163,7 +172,7 @@ export function buildImagesByGroupKey(
 
   if (mode === "tags") {
     for (const img of active) {
-      const tagList = img.tags && img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
+      const tagList: string[] = img.tags.length > 0 ? img.tags : [NO_TAGS_KEY]
       for (const tag of tagList) push(`tag:${tag}`, img)
     }
     return map

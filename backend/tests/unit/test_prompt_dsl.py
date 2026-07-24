@@ -63,9 +63,24 @@ class TestParser:
         vals = prog.axes["mood"].values
         assert len(vals) == 2
         assert vals[0].key == "happy"
+        assert vals[0].file_key is None
         assert vals[0].value == "a happy scene"
         assert vals[1].key == "sad"
         assert vals[1].value == "a sad scene"
+
+    def test_axis_file_key_alias_parsed(self):
+        prog = parse(
+            '{{axis pose}}\n'
+            '  hello_world as "hello-world" : "hello world pose"\n'
+            '{{/axis}}\n'
+            '{{combine pose}}\n'
+            '{{template}}{{pose}}{{/template}}\n'
+            '{{filename}}{{pose.key}}{{/filename}}\n'
+        )
+        val = prog.axes["pose"].values[0]
+        assert val.key == "hello_world"
+        assert val.file_key == "hello-world"
+        assert val.value == "hello world pose"
 
     def test_combine_expr_parsed(self):
         prog = _simple_program()
@@ -234,6 +249,32 @@ class TestParser:
         assert cond.axis == "mood"
         assert cond.op == "eq"
         assert cond.values == ["sad"]
+
+    def test_override_block(self):
+        prog = parse(
+            '{{axis mood}}\n'
+            '  happy : "happy"\n'
+            '  sad : "sad"\n'
+            '{{/axis}}\n'
+            '{{combine mood}}\n'
+            '{{override mood=happy}}\n'
+            '  prompt += ", warm light"\n'
+            '  slot.lora = "happy.safetensors"\n'
+            '  slot.lora_strength = 0.8\n'
+            '  meta.variant = "warm"\n'
+            '{{/override}}\n'
+            '{{template}}{{mood}}{{/template}}\n'
+            '{{filename}}out{{/filename}}\n'
+        )
+        assert len(prog.overrides) == 1
+        rule = prog.overrides[0]
+        assert rule.conditions[0].axis == "mood"
+        assert [a.target for a in rule.actions] == [
+            "prompt",
+            "slot.lora",
+            "slot.lora_strength",
+            "meta.variant",
+        ]
 
     def test_exclude_in(self):
         prog = parse(
@@ -663,6 +704,47 @@ class TestRenderExclude:
 
 
 # ══════════════════════════════════════════════
+#  Render Tests — Overrides
+# ══════════════════════════════════════════════
+
+class TestRenderOverrides:
+    """Tests for render() with combination-level override rules."""
+
+    def test_override_applies_prompt_slots_and_meta_to_matching_combo(self):
+        prog = parse(
+            '{{axis character}}\n'
+            '  alice : "alice"\n'
+            '  bob : "bob"\n'
+            '{{/axis}}\n'
+            '{{axis mood}}\n'
+            '  smile : "smiling"\n'
+            '  angry : "angry"\n'
+            '{{/axis}}\n'
+            '{{combine character * mood}}\n'
+            '{{override character=alice AND mood=smile}}\n'
+            '  prompt += ", warm light"\n'
+            '  slot.lora = "alice_smile.safetensors"\n'
+            '  slot.lora_strength = 0.8\n'
+            '  meta.variant = "warm"\n'
+            '{{/override}}\n'
+            '{{template}}{{character}}, {{mood}}{{/template}}\n'
+            '{{filename}}{{character.key}}_{{mood.key}}{{/filename}}\n'
+        )
+        result = render(prog)
+        items = result["items"]
+        matched = next(i for i in items if i["filename"] == "alice_smile")
+        other = next(i for i in items if i["filename"] == "bob_angry")
+
+        assert matched["prompt"] == "alice, smiling, warm light"
+        assert matched["slots"] == {
+            "lora": "alice_smile.safetensors",
+            "lora_strength": 0.8,
+        }
+        assert matched["meta"]["variant"] == "warm"
+        assert "slots" not in other
+
+
+# ══════════════════════════════════════════════
 #  Render Tests — Filters
 # ══════════════════════════════════════════════
 
@@ -829,6 +911,38 @@ class TestRenderFilename:
         )
         result = render(prog)
         assert result["items"][0]["filename"] == "out_happy"
+
+    def test_axis_file_key_alias_used_for_filename_key(self):
+        prog = parse(
+            '{{axis pose}}\n'
+            '  hello_world as "hello-world" : "hello world pose"\n'
+            '{{/axis}}\n'
+            '{{combine pose}}\n'
+            '{{template}}{{pose}}{{/template}}\n'
+            '{{filename}}{{pose.key}}{{/filename}}\n'
+        )
+        result = render(prog)
+        item = result["items"][0]
+        assert item["filename"] == "hello-world"
+        assert item["prompt"] == "hello world pose"
+        assert item["meta"] == {"pose": "hello_world"}
+        assert result["axes"]["pose"]["values"][0]["key"] == "hello_world"
+        assert result["axes"]["pose"]["values"][0]["file_key"] == "hello-world"
+
+    def test_combine_alias_key_uses_axis_file_key_alias(self):
+        prog = parse(
+            '{{axis pose}}\n'
+            '  hello_world as "hello-world" : "hello world pose"\n'
+            '{{/axis}}\n'
+            '{{axis mood}}\n'
+            '  very_happy as "very-happy" : "very happy"\n'
+            '{{/axis}}\n'
+            '{{combine combo = pose * mood}}\n'
+            '{{template}}{{combo}}{{/template}}\n'
+            '{{filename}}{{combo.key}}{{/filename}}\n'
+        )
+        result = render(prog)
+        assert result["items"][0]["filename"] == "hello-world_very-happy"
 
     def test_clean_filename_normalizes_double_underscores(self):
         prog = parse(

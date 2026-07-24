@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   AlertTriangleIcon,
   XIcon,
@@ -7,6 +7,8 @@ import {
   CheckSquareIcon,
   SquareIcon,
   Trash2Icon,
+  SparklesIcon,
+  ArrowRightIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -14,6 +16,11 @@ import { Label } from "@/components/ui/label"
 import { LoadingButton } from "./CombinationPickerComponents"
 import { useCurationContext } from "./CurationContext"
 import type { SavedImage } from "../../types/Message"
+import type { RenderItem } from "./CombinationPickerComponents"
+import {
+  buildOrphanRecommendations,
+  type OrphanRecommendation,
+} from "./orphanRecommendations"
 
 interface UnassignedPanelProps {
   filteredUnassignedGroups: Map<string, SavedImage[]>
@@ -29,6 +36,13 @@ interface UnassignedPanelProps {
   bulkTrashActionIsLoading: boolean
   bulkTrashActionMessage: string | null
   closeUnassignedPanel: () => void
+  renderItems: RenderItem[]
+  reconnectOrphan: (
+    filename: string,
+    images: SavedImage[],
+    recommendation: OrphanRecommendation
+  ) => Promise<void>
+  reconnectingFilename: string | null
 }
 
 function UnassignedGridItem({
@@ -40,6 +54,9 @@ function UnassignedGridItem({
   templateAffiliationCache,
   affiliations,
   handleUnassignedToggleSelect,
+  recommendation,
+  reconnectOrphan,
+  reconnecting,
 }: {
   filename: string
   imgs: SavedImage[]
@@ -49,15 +66,29 @@ function UnassignedGridItem({
   templateAffiliationCache: Map<string, string[]>
   affiliations: string[] | undefined
   handleUnassignedToggleSelect: (filename: string) => void
-}) {
+  recommendation: OrphanRecommendation | null
+  reconnectOrphan: () => Promise<void>
+  reconnecting: boolean
+}): React.JSX.Element {
   const preview = imgs[0]
   const [aspect, setAspect] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const handleDragStart = (e: React.DragEvent): void => {
+    e.dataTransfer.setData(
+      "text/plain",
+      JSON.stringify({
+        type: "unassigned-image",
+        hashes: imgs.map((img) => img.hash),
+      })
+    )
+  }
+
   return (
-    <button
-      onClick={() => handleUnassignedToggleSelect(filename)}
-      className={`group relative flex flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors ${
+    <div
+      draggable={true}
+      onDragStart={handleDragStart}
+      className={`group relative flex cursor-grab flex-col gap-1.5 rounded-lg border p-2 text-left transition-colors active:cursor-grabbing ${
         isSelected
           ? "bg-red-50/30 ring-2 ring-red-500"
           : isTrueOrphan && templateAffiliationCache.size > 0
@@ -65,7 +96,9 @@ function UnassignedGridItem({
             : "border-muted bg-card hover:border-amber-400/60"
       }`}
     >
-      <div
+      <button
+        type="button"
+        onClick={() => { handleUnassignedToggleSelect(filename) }}
         className="relative w-full overflow-hidden rounded-md bg-muted"
         style={{ aspectRatio: aspect ?? 1 }}
       >
@@ -90,6 +123,8 @@ function UnassignedGridItem({
                 }
               }}
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
             />
           </>
         ) : (
@@ -112,7 +147,7 @@ function UnassignedGridItem({
         <div className="absolute right-1.5 bottom-1.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-medium text-white">
           {imgs.length}장
         </div>
-      </div>
+      </button>
 
       <div className="w-full min-w-0 px-0.5">
         <div className="truncate font-mono text-[10px] font-bold">
@@ -125,7 +160,7 @@ function UnassignedGridItem({
                 완전 고아
               </span>
             ) : (
-              affiliations!.map((name, i) => (
+              (affiliations ?? []).map((name, i) => (
                 <span
                   key={i}
                   className="rounded bg-green-100 px-1 py-0.5 text-[8px] font-bold text-green-700"
@@ -136,8 +171,36 @@ function UnassignedGridItem({
             )}
           </div>
         )}
+        {recommendation !== null && (
+          <div className="mt-1.5 rounded-md border border-violet-300/60 bg-violet-50/70 p-1.5 dark:bg-violet-950/20">
+            <div className="flex items-center gap-1 text-[9px] font-bold text-violet-700 dark:text-violet-300">
+              <SparklesIcon className="h-3 w-3" />
+              추천 {recommendation.score}%
+            </div>
+            <div className="mt-1 flex items-center gap-1 font-mono text-[9px]">
+              <span className="truncate">{filename}</span>
+              <ArrowRightIcon className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate font-bold">{recommendation.target.filename}</span>
+            </div>
+            {recommendation.axisRenames.length > 0 && (
+              <div className="mt-1 text-[8px] text-muted-foreground">
+                {recommendation.axisRenames.map((rename) => `${rename.from} → ${rename.to}`).join(", ")}
+              </div>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={reconnecting || recommendation.confidence === "low"}
+              onClick={() => { void reconnectOrphan() }}
+              className="mt-1.5 h-6 w-full border-violet-300 text-[9px] font-bold"
+            >
+              {reconnecting ? "연결 중..." : recommendation.confidence === "low" ? "확인 필요" : "추천 조합에 연결"}
+            </Button>
+          </div>
+        )}
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -155,9 +218,29 @@ export function CombinationPickerUnassignedPanel({
   bulkTrashActionIsLoading,
   bulkTrashActionMessage,
   closeUnassignedPanel,
-}: UnassignedPanelProps) {
+  renderItems,
+  reconnectOrphan,
+  reconnectingFilename,
+}: UnassignedPanelProps): React.JSX.Element {
   const { backendUrl, data } = useCurationContext()
   const { unassignedGroups, unassignedTotalCount } = data
+  const [visibleCount, setVisibleCount] = useState(60)
+  const filteredEntries = useMemo(
+    () => Array.from(filteredUnassignedGroups.entries()),
+    [filteredUnassignedGroups]
+  )
+  const visibleEntries = useMemo(
+    () => filteredEntries.slice(0, visibleCount),
+    [filteredEntries, visibleCount]
+  )
+  const visibleGroups = useMemo(
+    () => new Map(visibleEntries),
+    [visibleEntries]
+  )
+  const recommendations = useMemo(
+    () => buildOrphanRecommendations(visibleGroups, renderItems),
+    [visibleGroups, renderItems]
+  )
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-amber-400/60 bg-amber-50/20 px-4 py-3">
@@ -175,7 +258,9 @@ export function CombinationPickerUnassignedPanel({
             <Checkbox
               id="showTrueOrphansOnly"
               checked={showTrueOrphansOnly}
-              onCheckedChange={(checked) => setShowTrueOrphansOnly(!!checked)}
+              onCheckedChange={(checked) => {
+                setShowTrueOrphansOnly(checked === true)
+              }}
             />
             <Label
               htmlFor="showTrueOrphansOnly"
@@ -219,7 +304,7 @@ export function CombinationPickerUnassignedPanel({
           >
             선택 항목 휴지통으로 ({unassignedSelectedFilenames.size}개)
           </LoadingButton>
-          {bulkTrashActionMessage && (
+          {bulkTrashActionMessage !== null && (
             <span className="text-xs font-bold text-red-600">
               {bulkTrashActionMessage}
             </span>
@@ -245,11 +330,12 @@ export function CombinationPickerUnassignedPanel({
           </div>
         ) : (
           <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {Array.from(filteredUnassignedGroups.entries()).map(
+            {visibleEntries.map(
               ([filename, imgs]) => {
                 const isSelected = unassignedSelectedFilenames.has(filename)
                 const affiliations = templateAffiliationCache.get(filename)
                 const isTrueOrphan = !affiliations || affiliations.length === 0
+                const recommendation = recommendations.get(filename) ?? null
 
                 return (
                   <UnassignedGridItem
@@ -262,10 +348,29 @@ export function CombinationPickerUnassignedPanel({
                     templateAffiliationCache={templateAffiliationCache}
                     affiliations={affiliations}
                     handleUnassignedToggleSelect={handleUnassignedToggleSelect}
+                    recommendation={recommendation}
+                    reconnectOrphan={() =>
+                      recommendation === null
+                        ? Promise.resolve()
+                        : reconnectOrphan(filename, imgs, recommendation)
+                    }
+                    reconnecting={reconnectingFilename === filename}
                   />
                 )
               }
             )}
+          </div>
+        )}
+        {visibleCount < filteredEntries.length && (
+          <div className="mt-3 flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setVisibleCount((count) => count + 60) }}
+              className="h-7 text-[10px] font-bold"
+            >
+              더 보기 ({visibleCount} / {filteredEntries.length})
+            </Button>
           </div>
         )}
       </div>

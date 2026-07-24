@@ -1,3 +1,4 @@
+import React from "react"
 import { cn } from "@/lib/utils"
 
 const STATUS_MAP: Record<string, { label: string; fg: string; bg: string }> = {
@@ -20,8 +21,15 @@ interface StatusPillProps {
   className?: string
 }
 
-export function StatusPill({ status, className }: StatusPillProps) {
-  const s = (STATUS_MAP[status] ?? STATUS_MAP.done)!
+export function StatusPill({
+  status,
+  className,
+}: StatusPillProps): React.JSX.Element {
+  const s = (STATUS_MAP[status] ?? STATUS_MAP.done) as {
+    label: string
+    fg: string
+    bg: string
+  }
   return (
     <span
       className={cn(

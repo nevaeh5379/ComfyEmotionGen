@@ -1,5 +1,9 @@
 import { CombinationPicker } from "../combinationpicker/CombinationPicker"
-import type { CurationToolbarState } from "../combinationpicker/CurationToolbarTypes"
+import { type CurationGroup } from "../combinationpicker/CurationToolbarTypes"
+import type {
+  CurationToolbarState,
+  CurationViewMode,
+} from "../combinationpicker/CurationToolbarTypes"
 import type { SavedTemplate } from "../../hooks/useSavedTemplates"
 import type { SavedWorkflow } from "../../hooks/useSavedWorkflows"
 import type { AppSettings } from "../../hooks/useSettings"
@@ -11,6 +15,7 @@ import type { AppSettings } from "../../hooks/useSettings"
 export interface CurationTabProps {
   backendUrl: string
   cegTemplate: string
+  onSaveCegTemplate?: (template: string) => void
   savedTemplates: SavedTemplate[]
   enableHover: AppSettings["enableHover"]
   autoApplyReject: AppSettings["autoApplyReject"]
@@ -19,6 +24,12 @@ export interface CurationTabProps {
   fluidGridLayout: AppSettings["fluidGridLayout"]
   curationSelectedAxis: string
   setCurationSelectedAxis: (axis: string) => void
+  curationActiveGroupId: string
+  setCurationActiveGroupId: (id: string) => void
+  curationActiveFilters: Record<string, string>
+  setCurationActiveFilters: (filters: Record<string, string>) => void
+  curationSavedGroups: CurationGroup[]
+  setCurationSavedGroups: (groups: CurationGroup[]) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -28,6 +39,7 @@ export interface CurationTabProps {
 export function CurationTab({
   backendUrl,
   cegTemplate,
+  onSaveCegTemplate,
   savedTemplates,
   enableHover,
   autoApplyReject,
@@ -36,12 +48,18 @@ export function CurationTab({
   fluidGridLayout,
   curationSelectedAxis,
   setCurationSelectedAxis,
-}: CurationTabProps) {
+  curationActiveGroupId,
+  setCurationActiveGroupId,
+  curationActiveFilters,
+  setCurationActiveFilters,
+  curationSavedGroups,
+  setCurationSavedGroups,
+}: CurationTabProps): React.JSX.Element {
   const toolbarState: CurationToolbarState = {
     selectedAxis: curationSelectedAxis,
     setSelectedAxis: setCurationSelectedAxis,
     viewMode: "gallery" as const,
-    setViewMode: () => {},
+    setViewMode: (_mode: CurationViewMode) => void 0,
     hideTopSection: true,
   }
 
@@ -56,7 +74,14 @@ export function CurationTab({
         hideEmptyCurationFolders={hideEmptyCurationFolders}
         savedWorkflows={savedWorkflows}
         fluidGridLayout={fluidGridLayout}
+        {...(onSaveCegTemplate !== undefined ? { onSaveCegTemplate } : {})}
         toolbarState={toolbarState}
+        activeGroupId={curationActiveGroupId}
+        setActiveGroupId={setCurationActiveGroupId}
+        activeFilters={curationActiveFilters}
+        setActiveFilters={setCurationActiveFilters}
+        savedGroups={curationSavedGroups}
+        setSavedGroups={setCurationSavedGroups}
       />
     </div>
   )

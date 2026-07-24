@@ -1,7 +1,10 @@
-import { BackendContext } from "../contexts/BackendContext"
+import {
+  BackendContext,
+  type BackendContextValue,
+} from "../contexts/BackendContext"
 import { useContextRequired } from "@/lib/context"
 
-export const useBackend = () => {
+export const useBackend = (): BackendContextValue => {
   return useContextRequired(BackendContext, "useBackend")
 }
 

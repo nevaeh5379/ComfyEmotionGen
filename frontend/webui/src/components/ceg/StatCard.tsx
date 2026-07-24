@@ -1,3 +1,4 @@
+import React from "react"
 import { cn } from "@/lib/utils"
 import { type LucideIcon } from "lucide-react"
 
@@ -21,10 +22,15 @@ export function StatCard({
   trend,
   faded,
   className,
-}: StatCardProps) {
+}: StatCardProps): React.JSX.Element {
   // Determine dynamic highlight colors based on theme color tokens
-  const themeStyles = (() => {
-    if (faded)
+  const getThemeStyles = (): {
+    bg: string
+    border: string
+    glow: string
+    iconColor: string
+  } => {
+    if (faded === true)
       return {
         bg: "",
         border: "",
@@ -76,13 +82,15 @@ export function StatCard({
           iconColor: "text-muted-foreground",
         }
     }
-  })()
+  }
+
+  const themeStyles = getThemeStyles()
 
   // Dynamic animation for specific running/active icons
   const iconClass = cn(
     "inline-block h-3.5 w-3.5 shrink-0 transition-transform duration-300 md:h-4.5 md:w-4.5",
     themeStyles.iconColor,
-    color === "text-info" && !faded && "animate-pulse"
+    color === "text-info" && faded !== true && "animate-pulse"
   )
 
   return (
@@ -93,7 +101,7 @@ export function StatCard({
         themeStyles.bg,
         themeStyles.border,
         themeStyles.glow,
-        faded && "opacity-25 hover:opacity-40",
+        faded === true && "opacity-25 hover:opacity-40",
         className
       )}
     >
@@ -110,7 +118,7 @@ export function StatCard({
         >
           {value}
         </div>
-        {delta != null && (
+        {delta !== undefined && (
           <div className="mono text-[11px] text-muted-foreground">
             {trend === "up" && "▲"} {trend === "down" && "▼"} {delta}
           </div>

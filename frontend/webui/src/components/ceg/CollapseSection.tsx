@@ -25,7 +25,7 @@ export function CollapseSection({
   actions,
   children,
   className,
-}: CollapseSectionProps) {
+}: CollapseSectionProps): React.JSX.Element {
   return (
     <AccordionPrimitive.Root
       type="single"
@@ -38,27 +38,31 @@ export function CollapseSection({
     >
       <AccordionPrimitive.Item value={ITEM_VALUE} className="border-0">
         <AccordionPrimitive.Header className="flex h-9 items-center justify-between px-3.5 whitespace-nowrap">
-          <AccordionPrimitive.Trigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden outline-none">
+          <AccordionPrimitive.Trigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
             <ChevronDown
               className={cn(
                 "h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-200",
                 open ? "" : "-rotate-90"
               )}
             />
-            {icon && <span className="shrink-0 text-ink-2">{icon}</span>}
+            {icon !== null && (
+              <span className="shrink-0 text-ink-2">{icon}</span>
+            )}
             <span className="text-xs font-semibold whitespace-nowrap">
               {title}
             </span>
-            {meta && (
+            {meta !== null && (
               <span className="flex items-center gap-1.5 text-[11px] whitespace-nowrap text-muted-foreground">
                 {meta}
               </span>
             )}
           </AccordionPrimitive.Trigger>
-          {actions && (
+          {actions !== null && (
             <div
               className="flex items-center"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+              }}
             >
               {actions}
             </div>

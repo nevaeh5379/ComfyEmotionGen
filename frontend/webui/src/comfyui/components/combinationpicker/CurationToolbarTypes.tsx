@@ -11,6 +11,13 @@ export type CurationViewMode =
   | "compare"
   | "tournament"
 
+export interface CurationGroup {
+  id: string
+  name: string
+  selectedAxis: string
+  filters: Record<string, string>
+}
+
 export interface CurationToolbarState {
   selectedAxis: string
   setSelectedAxis: (axis: string) => void
@@ -53,17 +60,37 @@ export interface CurationToolbarValue {
   setExportHandler: (fn: () => void) => void
   onRefresh: () => void
   setRefreshHandler: (fn: () => void) => void
+
+  activeGroupId: string
+  setActiveGroupId: (v: string) => void
+  activeFilters: Record<string, string>
+  setActiveFilters: (v: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  setSavedGroups: (v: CurationGroup[]) => void
+  selectCurationGroup: (id: string) => void
 }
 
 export function CurationToolbarProvider({
   children,
   selectedAxis,
   setSelectedAxis,
+  activeGroupId,
+  setActiveGroupId,
+  activeFilters,
+  setActiveFilters,
+  savedGroups,
+  setSavedGroups,
   savedTemplates,
 }: {
   children: React.ReactNode
   selectedAxis: string
   setSelectedAxis: (v: string) => void
+  activeGroupId: string
+  setActiveGroupId: (v: string) => void
+  activeFilters: Record<string, string>
+  setActiveFilters: (v: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  setSavedGroups: (v: CurationGroup[]) => void
   savedTemplates: { id: string; name: string }[]
 }): React.JSX.Element {
   const [viewMode, setViewModeState] = useLocalStorage<CurationViewMode>(
@@ -74,37 +101,47 @@ export function CurationToolbarProvider({
     STORAGE_KEYS.curationListLayout,
     "gallery"
   )
-  const [gridSubMode, setGridSubModeState] = useLocalStorage<"grid" | "compare" | "tournament">(
-    STORAGE_KEYS.curationGridSubMode,
-    "grid"
-  )
+  const [gridSubMode, setGridSubModeState] = useLocalStorage<
+    "grid" | "compare" | "tournament"
+  >(STORAGE_KEYS.curationGridSubMode, "grid")
   const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [hideRejected, setHideRejected] = useState(false)
   const [autoAdvance, setAutoAdvance] = useState(false)
-  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">("hash")
+  const [duplicateStrategy, setDuplicateStrategy] = useState<"hash" | "number">(
+    "hash"
+  )
   const [showUnassignedPanel, setShowUnassignedPanel] = useState(false)
   const [unassignedGroupsSize, setUnassignedGroupsSize] = useState(0)
-  const exportRef = useRef<() => void>(() => {})
-  const refreshRef = useRef<() => void>(() => {})
+  const exportRef = useRef<() => void>(null as unknown as () => void)
+  const refreshRef = useRef<() => void>(null as unknown as () => void)
 
-  const setViewMode = useCallback((mode: CurationViewMode) => {
-    setViewModeState(mode)
-    if (mode === "gallery" || mode === "table") {
-      setListLayoutState(mode)
-    } else {
-      setGridSubModeState(mode)
-    }
-  }, [])
+  const setViewMode = useCallback(
+    (mode: CurationViewMode) => {
+      setViewModeState(mode)
+      if (mode === "gallery" || mode === "table") {
+        setListLayoutState(mode)
+      } else {
+        setGridSubModeState(mode)
+      }
+    },
+    [setGridSubModeState, setListLayoutState, setViewModeState]
+  )
 
-  const setListLayout = useCallback((layout: "gallery" | "table") => {
-    setListLayoutState(layout)
-    setViewModeState(layout)
-  }, [])
+  const setListLayout = useCallback(
+    (layout: "gallery" | "table") => {
+      setListLayoutState(layout)
+      setViewModeState(layout)
+    },
+    [setListLayoutState, setViewModeState]
+  )
 
-  const setGridSubMode = useCallback((subMode: "grid" | "compare" | "tournament") => {
-    setGridSubModeState(subMode)
-    setViewModeState(subMode)
-  }, [])
+  const setGridSubMode = useCallback(
+    (subMode: "grid" | "compare" | "tournament") => {
+      setGridSubModeState(subMode)
+      setViewModeState(subMode)
+    },
+    [setGridSubModeState, setViewModeState]
+  )
 
   const setExportHandler = useCallback((fn: () => void) => {
     exportRef.current = fn
@@ -121,6 +158,27 @@ export function CurationToolbarProvider({
   const onRefresh = useCallback(() => {
     refreshRef.current()
   }, [])
+
+  const selectCurationGroup = useCallback((id: string) => {
+    if (id === "__all__") {
+      setActiveGroupId("__all__")
+      setActiveFilters({})
+      return
+    }
+    if (id.startsWith("preset:")) {
+      const axis = id.slice("preset:".length)
+      setActiveGroupId(id)
+      setActiveFilters({})
+      setSelectedAxis(axis)
+      return
+    }
+    const group = savedGroups.find((g) => g.id === id)
+    if (group) {
+      setActiveGroupId(id)
+      setActiveFilters(group.filters)
+      setSelectedAxis(group.selectedAxis)
+    }
+  }, [savedGroups, setSelectedAxis, setActiveGroupId, setActiveFilters])
 
   const value = useMemo(
     () => ({
@@ -149,6 +207,13 @@ export function CurationToolbarProvider({
       setExportHandler,
       onRefresh,
       setRefreshHandler,
+      activeGroupId,
+      setActiveGroupId,
+      activeFilters,
+      setActiveFilters,
+      savedGroups,
+      setSavedGroups,
+      selectCurationGroup,
     }),
     [
       selectedAxis,
@@ -176,6 +241,13 @@ export function CurationToolbarProvider({
       setExportHandler,
       onRefresh,
       setRefreshHandler,
+      activeGroupId,
+      setActiveGroupId,
+      activeFilters,
+      setActiveFilters,
+      savedGroups,
+      setSavedGroups,
+      selectCurationGroup,
     ]
   )
 

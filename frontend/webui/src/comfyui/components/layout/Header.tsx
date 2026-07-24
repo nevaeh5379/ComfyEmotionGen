@@ -1,97 +1,26 @@
-import { useState, useRef, useEffect } from "react"
-import {
-  ArrowDown,
-  ArrowUp,
-  Menu,
-  XIcon,
-  FilterIcon,
-  MoreVertical,
-  RefreshCwIcon,
-  DownloadIcon,
-  Trash2Icon,
-  Sun,
-  Moon,
-  Monitor,
-  LayoutGrid,
-  ChevronDown,
-  ExternalLink,
-  Save,
-  ArrowRight,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useTheme } from "@/components/theme-provider"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal,
-} from "@/components/ui/dropdown-menu"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { useTemplateContext } from "../../contexts/useTemplateContext"
-import { Tabs } from "@/components/ui/tabs"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { CompositionTabsList } from "../CompositionTabsList"
-import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
-import type { WorkerView, CurationStatus, JobView } from "../../types/Message"
+import type { WorkerView, JobView } from "../../types/Message"
+import type { TabId } from "./nav-tabs"
 import {
-  SessionPopover,
-  type SessionMarker,
-  type ActiveStateInfo,
-} from "../JobManagerSections"
-import { TagInputSearch } from "../TagInputSearch"
-import {
-  CURRENT_TEMPLATE_ID,
-  FREE_GROUP_LABELS,
-  encodeAxis,
-  type FreeGroupBy,
-} from "../combinationpicker/freeCurationGroupers"
-import { useCurationToolbar } from "../combinationpicker/useCurationToolbar"
-import { usePanelLayout } from "../../contexts/PanelLayoutContext"
-import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
-import { NAV_TABS, type TabId } from "./nav-tabs"
+  JobSessionControls,
+  type JobSessionControlsProps,
+} from "./JobSessionControls"
+import { DesktopNavigation, MobileNavigation } from "./HeaderNavigation"
+import { GeneratorHeaderControls } from "./GeneratorHeaderControls"
+import { useHeaderResponsiveLayout } from "../../hooks/useHeaderResponsiveLayout"
+import { GalleryFilters } from "./GalleryFilters"
+import { ThemeSelector } from "./ThemeSelector"
+import { GalleryHeaderControls } from "./GalleryHeaderControls"
+import { CurationHeaderControls } from "./CurationHeaderControls"
+import { MobileJobHeaderControls } from "./MobileJobHeaderControls"
 
-interface HeaderProps {
+interface HeaderProps extends Omit<
+  JobSessionControlsProps,
+  "markers" | "compact"
+> {
   useWindowMode?: boolean
   activeTab: TabId
   setActiveTab: (t: TabId) => void
-  isAliveBackend: boolean
   backendAlive: boolean
   workers: WorkerView[]
   jobsCount: number
@@ -116,24 +45,9 @@ interface HeaderProps {
   setIsSelectionOpen: (v: boolean) => void
   hasActiveFilter: boolean
   setIsAxisFilterOpen: (v: boolean) => void
-  setIsGraphOpen: (v: boolean) => void
 
-  // Session / Job controls props (lifted)
-  sessionMarkers?: SessionMarker[]
-  sessionJobCounts?: Map<string, number>
-  sortedMarkers?: SessionMarker[]
-  selectedSessionId?: string
-  activeSessionState?: ActiveStateInfo | null
-  sessionPickerOpen?: boolean
-  onSessionPickerOpenChange?: (open: boolean) => void
-  onSelectSession?: (id: string) => void
-  onCreateNewSession?: () => void
-  paused?: boolean
-  onTogglePause?: () => void
-  onCancelAll?: () => void
-  onRetryAllFailed?: () => void
-  onDeleteAllFailed?: () => void
-  activeJobsCount?: number
+  // Header renames the required session list because the controls are optional.
+  sessionMarkers?: JobSessionControlsProps["markers"]
 
   // Drag-to-float for stats/curation/gallery nav tabs
   onStatsDragStart?: (clientX: number, clientY: number) => void
@@ -141,142 +55,17 @@ interface HeaderProps {
   onGalleryDragStart?: (clientX: number, clientY: number) => void
 }
 
-export function Header(props: HeaderProps) {
-  const { theme, setTheme } = useTheme()
-  const panel = usePanelLayout()
-  const tb = useGalleryToolbar()
-  const curToolbar = useCurationToolbar()
-  const { generatorToolbarProps } = useTemplateContext()
-  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
-
-  const tabDragRef = useRef<{
-    tabId: "stats" | "curation" | "gallery"
-    startX: number
-    startY: number
-    wasDragged: boolean
-  } | null>(null)
-
-  const [isCompact, setIsCompact] = useState(false)
-  const [isGalleryToolbarCompact, setIsGalleryToolbarCompact] = useState(false)
-  const [isGalleryToolbarUltraCompact, setIsGalleryToolbarUltraCompact] =
-    useState(false)
-
-  const headerRef = useRef<HTMLDivElement>(null)
-  const logoRef = useRef<HTMLSpanElement>(null)
-  const tabsRef = useRef<HTMLDivElement>(null)
-
-  const galleryToolbarRef = useRef<HTMLDivElement>(null)
-  const curationToolbarRef = useRef<HTMLDivElement>(null)
-  const rightSectionRef = useRef<HTMLDivElement>(null)
-
-  const cachedTabsWidthRef = useRef<number>(480)
-  const cachedGalleryToolbarWidthRef = useRef<number>(560)
-  const cachedGalleryToolbarCompactWidthRef = useRef<number>(340)
-
-  useEffect(() => {
-    if (!headerRef.current) return
-
-    const getElWidth = (el: HTMLElement | null) => {
-      if (!el) return 0
-      return Math.max(el.scrollWidth, el.getBoundingClientRect().width)
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const currentWidth = entry.contentRect.width
-
-        const logoWidth = getElWidth(logoRef.current)
-        const rightSectionWidthRaw = getElWidth(rightSectionRef.current)
-        const galleryToolbarCurrentWidth = (props.activeTab === "gallery" && galleryToolbarRef.current) ? getElWidth(galleryToolbarRef.current) : 0
-        const rightSectionWidth = rightSectionWidthRaw - galleryToolbarCurrentWidth
-
-        let targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
-        let toolbarWidth = rightSectionWidth
-
-        if (props.activeTab === "gallery" && galleryToolbarRef.current) {
-          const currentToolbarWidth = getElWidth(galleryToolbarRef.current)
-
-          if (!isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
-            // 완전히 펼쳐진 상태의 너비 캐싱
-            cachedGalleryToolbarWidthRef.current = currentToolbarWidth
-            targetGalleryToolbarWidth = currentToolbarWidth
-          } else if (isGalleryToolbarCompact && !isGalleryToolbarUltraCompact) {
-            // 1단계 콤팩트 상태(셀렉트 박스들은 살아있음)의 너비 캐싱
-            cachedGalleryToolbarCompactWidthRef.current = currentToolbarWidth
-          }
-
-          if (isGalleryToolbarUltraCompact) {
-            targetGalleryToolbarWidth = 36 // MoreVertical 버튼 1개만 노출될 때의 너비
-          } else if (isGalleryToolbarCompact) {
-            targetGalleryToolbarWidth =
-              cachedGalleryToolbarCompactWidthRef.current
-          } else {
-            targetGalleryToolbarWidth = cachedGalleryToolbarWidthRef.current
-          }
-
-          toolbarWidth += targetGalleryToolbarWidth
-        } else if (
-          props.activeTab === "curation" &&
-          curationToolbarRef.current
-        ) {
-          toolbarWidth += getElWidth(curationToolbarRef.current)
-        }
-
-        if (tabsRef.current) {
-          const actualTabsWidth = getElWidth(tabsRef.current)
-          if (actualTabsWidth > 0) {
-            cachedTabsWidthRef.current = actualTabsWidth
-          }
-        }
-
-        // 1. 탭 콤팩트 판단 (로고 + 가로탭 리스트 + 우측 툴바 + 안전 마진)
-        const requiredWidthForTabs =
-          logoWidth + cachedTabsWidthRef.current + toolbarWidth + 80
-        const nextIsCompact = currentWidth < requiredWidthForTabs
-        setIsCompact(nextIsCompact)
-
-        // 2. 갤러리 툴바 콤팩트 판단
-        if (props.activeTab === "gallery") {
-          const tabsWidth = nextIsCompact ? 120 : cachedTabsWidthRef.current
-
-          // 풀 버전 기준 필요한 너비
-          const requiredWidthForToolbar =
-            logoWidth +
-            tabsWidth +
-            cachedGalleryToolbarWidthRef.current +
-            rightSectionWidth +
-            80
-          const nextIsToolbarCompact = currentWidth < requiredWidthForToolbar
-          setIsGalleryToolbarCompact(nextIsToolbarCompact)
-
-          // 콤팩트 버전 기준 필요한 너비 (드롭다운 3개 + 방향 버튼이 펼쳐진 상태)
-          const requiredWidthForUltraToolbar =
-            logoWidth +
-            tabsWidth +
-            cachedGalleryToolbarCompactWidthRef.current +
-            rightSectionWidth +
-            80
-          const nextIsUltraCompact = currentWidth < requiredWidthForUltraToolbar
-          setIsGalleryToolbarUltraCompact(nextIsUltraCompact)
-        } else {
-          setIsGalleryToolbarCompact(false)
-          setIsGalleryToolbarUltraCompact(false)
-        }
-      }
-    })
-
-    observer.observe(headerRef.current)
-    return () => observer.disconnect()
-  }, [props.activeTab, isGalleryToolbarCompact, isGalleryToolbarUltraCompact])
-
-  const toggleSort = (key: "createdAt" | "filename" | "sizeBytes") => {
-    if (tb.sortKey === key) {
-      tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
-    } else {
-      tb.setSortKey(key)
-      tb.setSortDir("asc")
-    }
-  }
+export function Header(props: HeaderProps): JSX.Element {
+  const {
+    headerRef,
+    logoRef,
+    tabsRef,
+    galleryToolbarRef,
+    curationToolbarRef,
+    rightSectionRef,
+    galleryToolbarCompact: isGalleryToolbarCompact,
+    galleryToolbarUltraCompact: isGalleryToolbarUltraCompact,
+  } = useHeaderResponsiveLayout(props.activeTab)
 
   return (
     <nav
@@ -285,111 +74,17 @@ export function Header(props: HeaderProps) {
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
         <div className="flex flex-1 items-center overflow-hidden md:gap-4">
-          {/* Mobile hamburger (left side) */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              showCloseButton={false}
-              className="w-[300px] sm:w-[320px]"
-            >
-              <SheetTitle className="sr-only">메뉴</SheetTitle>
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-line px-5 py-4">
-                <span className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[15px] font-black tracking-tighter text-transparent">
-                  ComfyEmotionGen WebUI
-                </span>
-                <SheetClose asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <XIcon className="h-4 w-4" />
-                  </Button>
-                </SheetClose>
-              </div>
-
-              {/* Navigation */}
-              <div className="flex flex-col gap-1 px-3 py-3">
-                {NAV_TABS.map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = props.activeTab === tab.id
-                  return (
-                    <div key={tab.id}>
-                      <SheetClose asChild>
-                        <button
-                          className={`group flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-bold transition-all ${
-                            isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                          }`}
-                          onClick={() => {
-                            props.setActiveTab(tab.id)
-                            if (tab.id === "jobs")
-                              props.setMobileJobTab("editor")
-                          }}
-                        >
-                          <Icon
-                            className={`h-[17px] w-[17px] ${isActive ? "opacity-100" : "opacity-50"}`}
-                          />
-                          <span>{tab.label}</span>
-                          {isActive && (
-                            <div className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-foreground" />
-                          )}
-                        </button>
-                      </SheetClose>
-                      {tab.id === "jobs" && (
-                        <div className="mt-0.5 ml-4 border-l border-line pl-3">
-                          {[
-                            { id: "editor" as const, label: "에디터" },
-                            { id: "status" as const, label: "현황" },
-                            {
-                              id: "list" as const,
-                              label: `기록 (${props.jobsCount})`,
-                            },
-                          ].map((sub) => (
-                            <SheetClose asChild key={sub.id}>
-                              <button
-                                className={`flex h-9 w-full items-center rounded-md px-3 text-left text-[12px] font-semibold transition-all ${
-                                  props.mobileJobTab === sub.id
-                                    ? "bg-accent/80 text-accent-foreground"
-                                    : "text-muted-foreground/70 hover:text-foreground"
-                                }`}
-                                onClick={() => {
-                                  props.setActiveTab("jobs")
-                                  props.setMobileJobTab(sub.id)
-                                }}
-                              >
-                                {sub.label}
-                              </button>
-                            </SheetClose>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Footer */}
-              <div className="mt-auto border-t border-line px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <ServerStatus
-                    name="백엔드"
-                    isConnected={props.isAliveBackend && props.backendAlive}
-                    okHint="백엔드와 연결되어 있습니다."
-                    failHint="백엔드 서버 상태를 확인해주세요."
-                  />
-                  <WorkerStatus
-                    workers={props.workers}
-                    backendAlive={props.isAliveBackend}
-                    jobs={props.jobs || []}
-                  />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <MobileNavigation
+            activeTab={props.activeTab}
+            setActiveTab={props.setActiveTab}
+            mobileJobTab={props.mobileJobTab}
+            setMobileJobTab={props.setMobileJobTab}
+            jobsCount={props.jobsCount}
+            isAliveBackend={props.isAliveBackend}
+            backendAlive={props.backendAlive}
+            workers={props.workers}
+            jobs={props.jobs ?? []}
+          />
           <span
             ref={logoRef}
             className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]"
@@ -397,1252 +92,112 @@ export function Header(props: HeaderProps) {
             <span className="hidden md:inline">ComfyEmotionGen</span>
           </span>
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-          {/* Desktop tabs */}
-          {isCompact ? (
-            <div className="hidden md:block shrink-0">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-2 rounded-full border-line bg-background px-4 text-[13px] font-black shadow-xs hover:bg-accent/50 shrink-0"
-                  >
-                    {(() => {
-                      const activeTabInfo = NAV_TABS.find(
-                        (t) => t.id === props.activeTab
-                      )
-                      const ActiveIcon = activeTabInfo?.icon
-                      return (
-                        <>
-                          {ActiveIcon && (
-                            <ActiveIcon className="h-4 w-4 opacity-100" />
-                          )}
-                          <span>{activeTabInfo?.label}</span>
-                        </>
-                      )
-                    })()}
-                    <ChevronDown className="h-3.5 w-3.5 opacity-55" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[150px] p-1.5">
-                  {NAV_TABS.map((tab) => {
-                    const TabIcon = tab.icon
-                    const isActive = props.activeTab === tab.id
-                    return (
-                      <DropdownMenuItem
-                        key={tab.id}
-                        onClick={() => props.setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-bold ${
-                          isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                        }`}
-                      >
-                        <TabIcon
-                          className={`h-3.5 w-3.5 ${isActive ? "opacity-100" : "opacity-60"}`}
-                        />
-                        <span>{tab.label}</span>
-                        {isActive && (
-                          <div className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-foreground" />
-                        )}
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <div
-              ref={tabsRef}
-              className="no-scrollbar hidden items-center gap-1 overflow-x-auto px-1 pb-1 md:flex shrink-0"
-              role="tablist"
-              aria-label="메인 탭 네비게이션"
-            >
-              {NAV_TABS.map((tab) => {
-                const Icon = tab.icon
-                const isDraggableTab =
-                  props.useWindowMode &&
-                  (tab.id === "stats" ||
-                    tab.id === "curation" ||
-                    tab.id === "gallery")
-                const dragCb =
-                  tab.id === "stats"
-                    ? props.onStatsDragStart
-                    : tab.id === "curation"
-                      ? props.onCurationDragStart
-                      : tab.id === "gallery"
-                        ? props.onGalleryDragStart
-                        : undefined
-                const isDetached =
-                  (tab.id === "stats" &&
-                    (panel.stats.isFloating || panel.stats.isDocked)) ||
-                  (tab.id === "curation" &&
-                    (panel.curation.isFloating || panel.curation.isDocked)) ||
-                  (tab.id === "gallery" &&
-                    (panel.gallery.isFloating || panel.gallery.isDocked))
-                return (
-                  <Button
-                    key={tab.id}
-                    variant="ghost"
-                    size="sm"
-                    role="tab"
-                    aria-selected={props.activeTab === tab.id}
-                    aria-label={tab.label}
-                    onClick={() => {
-                      if (tabDragRef.current?.wasDragged) {
-                        tabDragRef.current = null
-                        return
-                      }
-                      props.setActiveTab(tab.id)
-                    }}
-                    onMouseDown={
-                      isDraggableTab && dragCb
-                        ? (e) => {
-                            tabDragRef.current = {
-                              tabId: tab.id as "stats" | "curation" | "gallery",
-                              startX: e.clientX,
-                              startY: e.clientY,
-                              wasDragged: false,
-                            }
+          <DesktopNavigation
+            tabsRef={tabsRef}
+            activeTab={props.activeTab}
+            setActiveTab={props.setActiveTab}
+            useWindowMode={props.useWindowMode === true}
+            onStatsDragStart={props.onStatsDragStart}
+            onCurationDragStart={props.onCurationDragStart}
+            onGalleryDragStart={props.onGalleryDragStart}
+          />
+          <MobileJobHeaderControls
+            active={props.activeTab === "jobs"}
+            mobileJobTab={props.mobileJobTab}
+            compositionTab={props.compositionTab}
+            setCompositionTab={props.setCompositionTab}
+            repeatCount={props.repeatCount}
+            setRepeatCount={props.setRepeatCount}
+            handleRun={props.handleRun}
+            handleRandomRun={props.handleRandomRun}
+            handleRunUnapproved={props.handleRunUnapproved}
+            randomRunCount={props.randomRunCount}
+            setRandomRunCount={props.setRandomRunCount}
+            canRun={props.canRun}
+            estimatedRunCount={props.estimatedRunCount}
+            workers={props.workers}
+            targetWorkerId={props.targetWorkerId}
+            setTargetWorkerId={props.setTargetWorkerId}
+            setIsSelectionOpen={props.setIsSelectionOpen}
+            hasActiveFilter={props.hasActiveFilter}
+            setIsAxisFilterOpen={props.setIsAxisFilterOpen}
+            sessionMarkers={props.sessionMarkers}
+            sessionJobCounts={props.sessionJobCounts}
+            sortedMarkers={props.sortedMarkers}
+            selectedSessionId={props.selectedSessionId}
+            activeSessionState={props.activeSessionState}
+            sessionPickerOpen={props.sessionPickerOpen}
+            onSessionPickerOpenChange={props.onSessionPickerOpenChange}
+            onSelectSession={props.onSelectSession}
+            onCreateNewSession={props.onCreateNewSession}
+            paused={props.paused}
+            onTogglePause={props.onTogglePause}
+            onCancelAll={props.onCancelAll}
+            onRetryAllFailed={props.onRetryAllFailed}
+            onDeleteAllFailed={props.onDeleteAllFailed}
+            activeJobsCount={props.activeJobsCount}
+            isAliveBackend={props.isAliveBackend}
+          />
 
-                            const handleMove = (me: MouseEvent) => {
-                              if (!tabDragRef.current) return
-                              const dx = me.clientX - tabDragRef.current.startX
-                              const dy = me.clientY - tabDragRef.current.startY
-                              if (
-                                Math.sqrt(dx * dx + dy * dy) > 8 &&
-                                !tabDragRef.current.wasDragged
-                              ) {
-                                tabDragRef.current.wasDragged = true
-                                dragCb(
-                                  tabDragRef.current.startX,
-                                  tabDragRef.current.startY
-                                )
-                                document.removeEventListener(
-                                  "mousemove",
-                                  handleMove
-                                )
-                                document.removeEventListener(
-                                  "mouseup",
-                                  handleUp
-                                )
-                              }
-                            }
-                            const handleUp = () => {
-                              document.removeEventListener(
-                                "mousemove",
-                                handleMove
-                              )
-                              document.removeEventListener("mouseup", handleUp)
-                              if (!tabDragRef.current?.wasDragged) {
-                                tabDragRef.current = null
-                              }
-                            }
-                            document.addEventListener("mousemove", handleMove)
-                            document.addEventListener("mouseup", handleUp)
-                          }
-                        : undefined
-                    }
-                    className={`relative h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
-                      props.activeTab === tab.id
-                        ? "bg-foreground text-background shadow-lg"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    } ${isDraggableTab ? "cursor-grab select-none active:cursor-grabbing" : ""}`}
-                  >
-                    <Icon
-                      className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
-                    />
-                    <span
-                      className={
-                        props.activeTab === tab.id ? "" : "hidden sm:inline"
-                      }
-                    >
-                      {tab.label}
-                    </span>
-                    {isDetached && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
-                    )}
-                  </Button>
-                )
-              })}
-            </div>
-          )}
-          {/* Mobile composition tabs (jobs editor only) */}
-          {props.activeTab === "jobs" && props.mobileJobTab === "editor" && (
-            <div className="no-scrollbar flex flex-1 items-center justify-between gap-2 overflow-x-auto md:hidden">
-              <Tabs
-                value={props.compositionTab}
-                onValueChange={(v) =>
-                  props.setCompositionTab(v as "ceg" | "workflow")
-                }
-              >
-                <CompositionTabsList />
-              </Tabs>
-              <WorkCompositionToolbar
-                repeatCount={props.repeatCount}
-                setRepeatCount={props.setRepeatCount}
-                handleRun={props.handleRun}
-                handleRandomRun={props.handleRandomRun}
-                handleRunUnapproved={props.handleRunUnapproved}
-                randomRunCount={props.randomRunCount}
-                setRandomRunCount={props.setRandomRunCount}
-                canRun={props.canRun}
-                estimatedRunCount={props.estimatedRunCount}
-                workers={props.workers}
-                targetWorkerId={props.targetWorkerId}
-                setTargetWorkerId={props.setTargetWorkerId}
-                onSelectionOpen={() => props.setIsSelectionOpen(true)}
-                hasActiveFilter={props.hasActiveFilter}
-                onAxisFilterOpen={() => props.setIsAxisFilterOpen(true)}
-                onGraphOpen={() => props.setIsGraphOpen(true)}
-              />
-            </div>
-          )}
-          {/* Mobile Session/Pause/Actions toolbar (jobs status or list only) */}
-          {props.activeTab === "jobs" &&
-            (props.mobileJobTab === "status" ||
-              props.mobileJobTab === "list") &&
-            props.sessionMarkers && (
-              <div className="flex flex-1 items-center justify-end gap-1.5 md:hidden">
-                <div className="relative">
-                  <SessionPopover
-                    markers={props.sessionMarkers}
-                    sessionJobCounts={props.sessionJobCounts || new Map()}
-                    sortedMarkers={props.sortedMarkers || []}
-                    selectedId={props.selectedSessionId || ""}
-                    activeState={props.activeSessionState || null}
-                    isOpen={props.sessionPickerOpen || false}
-                    onOpenChange={props.onSessionPickerOpenChange || (() => {})}
-                    onSelectSession={props.onSelectSession || (() => {})}
-                    onCreateNew={props.onCreateNewSession || (() => {})}
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  variant={props.paused ? "default" : "outline"}
-                  className="h-8 px-2 text-[10px] font-bold"
-                  onClick={props.onTogglePause}
-                  disabled={!props.isAliveBackend}
-                >
-                  {props.paused ? "재개" : "일시중지"}
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 p-2">
-                    <DropdownMenuItem
-                      onClick={props.onCancelAll}
-                      disabled={
-                        !props.isAliveBackend ||
-                        (props.activeJobsCount ?? 0) === 0
-                      }
-                      className="py-3 font-bold text-destructive"
-                    >
-                      진행 중인 모든 작업 취소
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={props.onRetryAllFailed}
-                      className="py-3 font-bold"
-                    >
-                      실패/취소된 모든 작업 재시도
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={props.onDeleteAllFailed}
-                      className="py-3 font-bold text-destructive"
-                    >
-                      실패/취소된 모든 작업 삭제
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
+          <GeneratorHeaderControls active={props.activeTab === "generator"} />
 
-          {/* Generator toolbar (unified for both desktop and mobile) */}
-          {props.activeTab === "generator" && generatorToolbarProps && (
-            <div className="flex flex-1 items-center gap-1.5 min-w-0">
-              <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-              
-              {/* Template selector */}
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <span className="hidden sm:inline text-xs font-semibold text-muted-foreground shrink-0">템플릿</span>
-                <Select value={generatorToolbarProps.effectiveId} onValueChange={generatorToolbarProps.setSelectedTemplateId}>
-                  <SelectTrigger className="!h-7 w-full sm:w-[160px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0">
-                    <SelectValue placeholder="선택..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new" className="text-[11px] font-bold text-primary focus:text-primary-foreground focus:bg-primary/10 cursor-pointer">
-                      + 새 템플릿 만들기
-                    </SelectItem>
-                    <SelectSeparator />
-                    {Object.entries(generatorToolbarProps.groupedTemplates).map(([cat, ts]) => {
-                      if (cat === "new") return null
-                      return (
-                        <SelectGroup key={cat}>
-                          <SelectLabel className="text-[9px] font-bold tracking-widest uppercase">{generatorToolbarProps.catLabel(cat)}</SelectLabel>
-                          {ts.map((t) => (
-                            <SelectItem key={t.id} value={t.id} className="text-[11px] font-bold">{t.name}</SelectItem>
-                          ))}
-                        </SelectGroup>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Save Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={() => setIsSaveDialogOpen(true)} disabled={!generatorToolbarProps.generatedCode} className="!h-7 gap-1 shrink-0 px-2 text-[10px] font-bold border-line hover:bg-muted">
-                    <Save className="h-3 w-3" />
-                    <span className="hidden sm:inline">저장</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>템플릿 저장</TooltipContent>
-              </Tooltip>
-
-              {/* Apply Button */}
-              <Button onClick={generatorToolbarProps.handleApply} disabled={!generatorToolbarProps.generatedCode} className="!h-7 shrink-0 gap-1 px-2.5 text-[10px] font-bold">
-                적용
-                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-              </Button>
-            </div>
-          )}
-
-          {/* Curation toolbar — desktop (hidden on mobile) */}
-          {props.activeTab === "curation" && (
-            <div ref={curationToolbarRef} className="hidden items-center gap-1.5 md:flex">
-              <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-              <Select
-                value={curToolbar.selectedAxis}
-                onValueChange={(v) => curToolbar.setSelectedAxis(v)}
-              >
-                <SelectTrigger className="!h-7 w-[150px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[200px] hidden md:inline-flex">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel className="text-[10px] text-muted-foreground">
-                      템플릿
-                    </SelectLabel>
-                    <SelectItem
-                      value={encodeAxis({
-                        kind: "template",
-                        templateId: CURRENT_TEMPLATE_ID,
-                      })}
-                      className="text-[12px] font-bold"
-                    >
-                      현재 편집 중인 템플릿
-                    </SelectItem>
-                    {curToolbar.savedTemplates.map((t) => (
-                      <SelectItem
-                        key={t.id}
-                        value={encodeAxis({
-                          kind: "template",
-                          templateId: t.id,
-                        })}
-                        className="text-[12px] font-bold"
-                      >
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel className="text-[10px] text-muted-foreground">
-                      기타 분류
-                    </SelectLabel>
-                    {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
-                      (mode) => (
-                        <SelectItem
-                          key={mode}
-                          value={encodeAxis({ kind: "free", mode })}
-                          className="text-[12px] font-bold"
-                        >
-                          {FREE_GROUP_LABELS[mode]}
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Curation toolbar — mobile (hidden on desktop) */}
-          {props.activeTab === "curation" && (
-            <div className="flex items-center gap-1 md:hidden">
-              <Select
-                value={curToolbar.selectedAxis}
-                onValueChange={(v) => curToolbar.setSelectedAxis(v)}
-              >
-                <SelectTrigger className="!h-7 w-[120px] border-line bg-background px-1.5 !py-1 text-[10px] font-bold shadow-none focus:ring-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel className="text-[10px] text-muted-foreground">
-                      템플릿
-                    </SelectLabel>
-                    <SelectItem
-                      value={encodeAxis({
-                        kind: "template",
-                        templateId: CURRENT_TEMPLATE_ID,
-                      })}
-                      className="text-[11px] font-bold"
-                    >
-                      현재 편집 중
-                    </SelectItem>
-                    {curToolbar.savedTemplates.map((t) => (
-                      <SelectItem
-                        key={t.id}
-                        value={encodeAxis({
-                          kind: "template",
-                          templateId: t.id,
-                        })}
-                        className="text-[11px] font-bold"
-                      >
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel className="text-[10px] text-muted-foreground">
-                      기타 분류
-                    </SelectLabel>
-                    {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
-                      (mode) => (
-                        <SelectItem
-                          key={mode}
-                          value={encodeAxis({ kind: "free", mode })}
-                          className="text-[11px] font-bold"
-                        >
-                          {FREE_GROUP_LABELS[mode]}
-                        </SelectItem>
-                      )
-                    )}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-
-
-              <Button
-                size="sm"
-                variant={curToolbar.filtersExpanded ? "secondary" : "outline"}
-                className="!h-7 !w-7 shrink-0 p-0"
-                onClick={() =>
-                  curToolbar.setFiltersExpanded(!curToolbar.filtersExpanded)
-                }
-              >
-                <FilterIcon className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          <CurationHeaderControls
+            ref={curationToolbarRef}
+            active={props.activeTab === "curation"}
+          />
         </div>
         <div
           ref={rightSectionRef}
-          className="ml-1 shrink-0 items-center gap-2 flex"
+          className="ml-1 flex shrink-0 items-center gap-2"
         >
-          {/* Gallery toolbar — desktop (moved to right section) */}
-          {props.activeTab === "gallery" && (
-            <div ref={galleryToolbarRef} className="hidden items-center gap-1.5 md:flex">
-              <Select
-                value={tb.statusFilter}
-                onValueChange={(v: string) => {
-                  tb.setStatusFilter(v as CurationStatus | "all")
-                }}
-              >
-                <SelectTrigger
-                  className={`!h-7 w-[82px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(
-                    [
-                      "all",
-                      "pending",
-                      "approved",
-                      "rejected",
-                      "trashed",
-                    ] as const
-                  ).map((s) => (
-                    <SelectItem
-                      key={s}
-                      value={s}
-                      className="text-[12px] font-bold"
-                    >
-                      {s === "all"
-                        ? "전체"
-                        : s === "pending"
-                          ? "대기"
-                          : s === "approved"
-                            ? "통과"
-                            : s === "rejected"
-                              ? "탈락"
-                              : "휴지통"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={tb.groupMode ? "group" : tb.viewMode}
-                onValueChange={(v) => {
-                  if (v === "group") {
-                    tb.setGroupMode(true)
-                  } else {
-                    tb.setGroupMode(false)
-                    tb.setViewMode(v as "grid" | "compare")
-                  }
-                }}
-              >
-                <SelectTrigger
-                  className={`!h-7 w-[78px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="group" className="text-[12px] font-bold">
-                    그룹
-                  </SelectItem>
-                  <SelectItem value="grid" className="text-[12px] font-bold">
-                    그리드
-                  </SelectItem>
-                  <SelectItem value="compare" className="text-[12px] font-bold">
-                    비교
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={tb.sortKey}
-                onValueChange={(k) =>
-                  toggleSort(k as "createdAt" | "filename" | "sizeBytes")
-                }
-              >
-                <SelectTrigger
-                  className={`!h-7 w-[74px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    value="createdAt"
-                    className="text-[12px] font-bold"
-                  >
-                    날짜순
-                  </SelectItem>
-                  <SelectItem
-                    value="filename"
-                    className="text-[12px] font-bold"
-                  >
-                    파일명순
-                  </SelectItem>
-                  <SelectItem
-                    value="sizeBytes"
-                    className="text-[12px] font-bold"
-                  >
-                    크기순
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => toggleSort(tb.sortKey)}
-                    className={`!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted hidden ${isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                  >
-                    {tb.sortDir === "asc" ? (
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    ) : (
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>정렬 방향</TooltipContent>
-              </Tooltip>
-
-              {(tb.groupMode || tb.viewMode === "grid") && (
-                <div
-                  className={`hidden h-7 items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-2 py-1 shadow-xs ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:flex"}`}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center text-muted-foreground">
-                        <LayoutGrid className="h-3.5 w-3.5" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-xs font-bold">
-                      크기 조절
-                    </TooltipContent>
-                  </Tooltip>
-                  <input
-                    type="range"
-                    min="120"
-                    max="320"
-                    step="10"
-                    value={tb.thumbnailSize}
-                    onChange={(e) =>
-                      tb.setThumbnailSize(Number(e.target.value))
-                    }
-                    className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
-                  />
-                  <span className="w-[34px] text-right font-mono text-[9px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
-                    {tb.thumbnailSize}px
-                  </span>
-                </div>
-              )}
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant={tb.showFilters ? "secondary" : "outline"}
-                    onClick={() => tb.setShowFilters(!tb.showFilters)}
-                    className={`relative !h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                  >
-                    <FilterIcon className="h-3.5 w-3.5" />
-                    {tb.hasAnyFilter && (
-                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary"></span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>검색 및 필터 토글</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className={`!h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                    onClick={() => tb.handleExport()}
-                  >
-                    <DownloadIcon className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>갤러리 내보내기</TooltipContent>
-              </Tooltip>
-
-              {props.useWindowMode && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className={`!h-7 !w-7 p-0 hidden ${isGalleryToolbarCompact || isGalleryToolbarUltraCompact ? "md:hidden" : "md:inline-flex"}`}
-                      onClick={() => {
-                        panel.gallery.setIsFloating(true)
-                        props.setActiveTab("jobs")
-                      }}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>창으로 분리 (Pop out)</TooltipContent>
-                </Tooltip>
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="!h-7 !w-7 p-0 hidden md:inline-flex">
-                    <MoreVertical className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className={
-                    isGalleryToolbarUltraCompact
-                      ? "w-[220px] p-2"
-                      : isGalleryToolbarCompact
-                        ? "w-[200px] p-2"
-                        : "w-[160px]"
-                  }
-                >
-                  {isGalleryToolbarUltraCompact && (
-                    <>
-                      {/* 상태 필터 서브메뉴 */}
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                          <span>
-                            필터:{" "}
-                            {tb.statusFilter === "all"
-                              ? "전체"
-                              : tb.statusFilter === "pending"
-                                ? "대기"
-                                : tb.statusFilter === "approved"
-                                  ? "통과"
-                                  : tb.statusFilter === "rejected"
-                                    ? "탈락"
-                                    : "휴지통"}
-                          </span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent className="w-[120px] p-1">
-                            {(
-                              [
-                                "all",
-                                "pending",
-                                "approved",
-                                "rejected",
-                                "trashed",
-                              ] as const
-                            ).map((s) => (
-                              <DropdownMenuItem
-                                key={s}
-                                onClick={() => tb.setStatusFilter(s)}
-                                className="text-[12px] font-bold"
-                              >
-                                {s === "all"
-                                  ? "전체"
-                                  : s === "pending"
-                                    ? "대기"
-                                    : s === "approved"
-                                      ? "통과"
-                                      : s === "rejected"
-                                        ? "탈락"
-                                        : "휴지통"}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-
-                      {/* 뷰 모드 서브메뉴 */}
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                          <span>
-                            보기:{" "}
-                            {tb.groupMode
-                              ? "그룹"
-                              : tb.viewMode === "grid"
-                                ? "그리드"
-                                : "비교"}
-                          </span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent className="w-[120px] p-1">
-                            <DropdownMenuItem
-                              onClick={() => tb.setGroupMode(true)}
-                              className="text-[12px] font-bold"
-                            >
-                              그룹
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                tb.setGroupMode(false)
-                                tb.setViewMode("grid")
-                              }}
-                              className="text-[12px] font-bold"
-                            >
-                              그리드
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                tb.setGroupMode(false)
-                                tb.setViewMode("compare")
-                              }}
-                              className="text-[12px] font-bold"
-                            >
-                              비교
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-
-                      {/* 정렬 기준 서브메뉴 */}
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                          <span>
-                            정렬:{" "}
-                            {tb.sortKey === "createdAt"
-                              ? "날짜순"
-                              : tb.sortKey === "filename"
-                                ? "파일명순"
-                                : "크기순"}
-                          </span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent className="w-[120px] p-1">
-                            <DropdownMenuItem
-                              onClick={() => toggleSort("createdAt")}
-                              className="text-[12px] font-bold"
-                            >
-                              날짜순
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => toggleSort("filename")}
-                              className="text-[12px] font-bold"
-                            >
-                              파일명순
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => toggleSort("sizeBytes")}
-                              className="text-[12px] font-bold"
-                            >
-                              크기순
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-
-                      {/* 정렬 방향 토글 아이템 */}
-                      <DropdownMenuItem
-                        onClick={() => toggleSort(tb.sortKey)}
-                        className="mb-1 flex items-center gap-2 border-b border-line/45 pb-2 text-[12px] font-bold"
-                      >
-                        {tb.sortDir === "asc" ? (
-                          <>
-                            <ArrowUp className="h-3.5 w-3.5 opacity-60" />
-                            <span>정렬 방향: 오름차순</span>
-                          </>
-                        ) : (
-                          <>
-                            <ArrowDown className="h-3.5 w-3.5 opacity-60" />
-                            <span>정렬 방향: 내림차순</span>
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                    </>
-                  )}
-
-                  {(isGalleryToolbarCompact ||
-                    isGalleryToolbarUltraCompact) && (
-                    <>
-                      <DropdownMenuItem
-                        onClick={() => tb.setShowFilters(!tb.showFilters)}
-                        className="flex items-center gap-2 text-[12px] font-bold"
-                      >
-                        <FilterIcon
-                          className={`h-3.5 w-3.5 ${tb.showFilters ? "text-primary" : "opacity-60"}`}
-                        />
-                        <span>필터 {tb.showFilters ? "숨기기" : "표시"}</span>
-                        {tb.hasAnyFilter && (
-                          <span className="ml-auto h-2 w-2 rounded-full bg-primary" />
-                        )}
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        onClick={() => tb.handleExport()}
-                        className="flex items-center gap-2 text-[12px] font-bold"
-                      >
-                        <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
-                        <span>갤러리 내보내기</span>
-                      </DropdownMenuItem>
-
-                      {props.useWindowMode && (
-                        <DropdownMenuItem
-                          onClick={() => {
-                            panel.gallery.setIsFloating(true)
-                            props.setActiveTab("jobs")
-                          }}
-                          className="flex items-center gap-2 text-[12px] font-bold"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-                          <span>창으로 분리 (Pop out)</span>
-                        </DropdownMenuItem>
-                      )}
-
-                      {(tb.groupMode || tb.viewMode === "grid") && (
-                        <div className="my-1 flex flex-col gap-1.5 border-b border-line/45 px-2.5 py-2">
-                          <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-                            <span className="flex items-center gap-1.5">
-                              <LayoutGrid className="h-3.5 w-3.5" />
-                              크기 조절
-                            </span>
-                            <span className="font-mono text-[10px] text-primary">
-                              {tb.thumbnailSize}px
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            min="120"
-                            max="320"
-                            step="10"
-                            value={tb.thumbnailSize}
-                            onChange={(e) =>
-                              tb.setThumbnailSize(Number(e.target.value))
-                            }
-                            className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      )}
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuItem
-                    onClick={() => tb.handleRefresh()}
-                    className="text-[12px] font-bold"
-                  >
-                    <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
-                    새로고침
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => tb.handleEmptyTrash()}
-                    className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive"
-                  >
-                    <Trash2Icon className="mr-2 h-3.5 w-3.5 opacity-60" />
-                    휴지통 비우기
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-            </div>
-          )}
-          {/* 모바일 갤러리 ... 버튼 (오른쪽 배치) */}
-          {props.activeTab === "gallery" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="!h-8 !w-8 p-0 md:hidden">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className={
-                  isGalleryToolbarUltraCompact
-                    ? "w-[220px] p-2"
-                    : isGalleryToolbarCompact
-                      ? "w-[200px] p-2"
-                      : "w-[160px]"
-                }
-              >
-                {isGalleryToolbarUltraCompact && (
-                  <>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                        <span>
-                          필터: {tb.statusFilter === "all" ? "전체" : tb.statusFilter === "pending" ? "대기" : tb.statusFilter === "approved" ? "통과" : tb.statusFilter === "rejected" ? "탈락" : "휴지통"}
-                        </span>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
-                        <DropdownMenuSubContent className="w-[120px] p-1">
-                          {(["all","pending","approved","rejected","trashed"] as const).map((s) => (
-                            <DropdownMenuItem key={s} onClick={() => tb.setStatusFilter(s)} className="text-[12px] font-bold">
-                              {s === "all" ? "전체" : s === "pending" ? "대기" : s === "approved" ? "통과" : s === "rejected" ? "탈락" : "휴지통"}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                        <span>보기: {tb.groupMode ? "그룹" : tb.viewMode === "grid" ? "그리드" : "비교"}</span>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
-                        <DropdownMenuSubContent className="w-[120px] p-1">
-                          <DropdownMenuItem onClick={() => tb.setGroupMode(true)} className="text-[12px] font-bold">그룹</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { tb.setGroupMode(false); tb.setViewMode("grid") }} className="text-[12px] font-bold">그리드</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { tb.setGroupMode(false); tb.setViewMode("compare") }} className="text-[12px] font-bold">비교</DropdownMenuItem>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger className="flex items-center gap-2 text-[12px] font-bold">
-                        <span>정렬: {tb.sortKey === "createdAt" ? "날짜순" : tb.sortKey === "filename" ? "파일명순" : "크기순"}</span>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
-                        <DropdownMenuSubContent className="w-[120px] p-1">
-                          <DropdownMenuItem onClick={() => toggleSort("createdAt")} className="text-[12px] font-bold">날짜순</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleSort("filename")} className="text-[12px] font-bold">파일명순</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleSort("sizeBytes")} className="text-[12px] font-bold">크기순</DropdownMenuItem>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                    <DropdownMenuItem onClick={() => toggleSort(tb.sortKey)} className="mb-1 flex items-center gap-2 border-b border-line/45 pb-2 text-[12px] font-bold">
-                      {tb.sortDir === "asc" ? (
-                        <><ArrowUp className="h-3.5 w-3.5 opacity-60" /><span>정렬 방향: 오름차순</span></>
-                      ) : (
-                        <><ArrowDown className="h-3.5 w-3.5 opacity-60" /><span>정렬 방향: 내림차순</span></>
-                      )}
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {(isGalleryToolbarCompact || isGalleryToolbarUltraCompact) && (
-                  <>
-                    <DropdownMenuItem onClick={() => tb.setShowFilters(!tb.showFilters)} className="flex items-center gap-2 text-[12px] font-bold">
-                      <FilterIcon className={`h-3.5 w-3.5 ${tb.showFilters ? "text-primary" : "opacity-60"}`} />
-                      <span>필터 {tb.showFilters ? "숨기기" : "표시"}</span>
-                      {tb.hasAnyFilter && <span className="ml-auto h-2 w-2 rounded-full bg-primary" />}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => tb.handleExport()} className="flex items-center gap-2 text-[12px] font-bold">
-                      <DownloadIcon className="h-3.5 w-3.5 opacity-60" />
-                      <span>갤러리 내보내기</span>
-                    </DropdownMenuItem>
-                    {props.useWindowMode && (
-                      <DropdownMenuItem onClick={() => { panel.gallery.setIsFloating(true); props.setActiveTab("jobs") }} className="flex items-center gap-2 text-[12px] font-bold">
-                        <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-                        <span>창으로 분리 (Pop out)</span>
-                      </DropdownMenuItem>
-                    )}
-                    {(tb.groupMode || tb.viewMode === "grid") && (
-                      <div className="my-1 flex flex-col gap-1.5 border-b border-line/45 px-2.5 py-2">
-                        <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-                          <span className="flex items-center gap-1.5"><LayoutGrid className="h-3.5 w-3.5" />크기 조절</span>
-                          <span className="font-mono text-[10px] text-primary">{tb.thumbnailSize}px</span>
-                        </div>
-                        <input type="range" min="120" max="320" step="10" value={tb.thumbnailSize} onChange={(e) => tb.setThumbnailSize(Number(e.target.value))} className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none" onClick={(e) => e.stopPropagation()} />
-                      </div>
-                    )}
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem onClick={() => tb.handleRefresh()} className="text-[12px] font-bold">
-                  <RefreshCwIcon className="mr-2 h-3.5 w-3.5 opacity-60" />
-                  새로고침
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => tb.handleEmptyTrash()} className="text-[12px] font-bold text-destructive focus:bg-destructive/10 focus:text-destructive">
-                  <Trash2Icon className="mr-2 h-3.5 w-3.5 opacity-60" />
-                  휴지통 비우기
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {/* 모바일 구분선 */}
-          {props.activeTab === "gallery" && <div className="h-4 w-px bg-border/60 md:hidden" />}
+          <GalleryHeaderControls
+            ref={galleryToolbarRef}
+            active={props.activeTab === "gallery"}
+            compact={isGalleryToolbarCompact}
+            ultraCompact={isGalleryToolbarUltraCompact}
+            useWindowMode={props.useWindowMode === true}
+            onPopOut={() => {
+              props.setActiveTab("jobs")
+            }}
+          />
           {props.activeTab === "jobs" && props.sessionMarkers && (
-            <div className="hidden mr-1 items-center gap-1.5 border-r border-line/65 pr-3 md:flex">
-              <div className="relative">
-                <SessionPopover
-                  markers={props.sessionMarkers}
-                  sessionJobCounts={props.sessionJobCounts || new Map()}
-                  sortedMarkers={props.sortedMarkers || []}
-                  selectedId={props.selectedSessionId || ""}
-                  activeState={props.activeSessionState || null}
-                  isOpen={props.sessionPickerOpen || false}
-                  onOpenChange={props.onSessionPickerOpenChange || (() => {})}
-                  onSelectSession={props.onSelectSession || (() => {})}
-                  onCreateNew={props.onCreateNewSession || (() => {})}
-                />
-              </div>
-              <Button
-                size="sm"
-                variant={props.paused ? "default" : "outline"}
-                className="h-8 px-3 text-[11px] font-bold"
-                onClick={props.onTogglePause}
-                disabled={!props.isAliveBackend}
-              >
-                {props.paused ? "재개" : "일시중지"}
-              </Button>
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>추가 작업</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="w-56 p-2">
-                  <DropdownMenuItem
-                    onClick={props.onCancelAll}
-                    disabled={
-                      !props.isAliveBackend ||
-                      (props.activeJobsCount ?? 0) === 0
-                    }
-                    className="py-3 font-bold text-destructive"
-                  >
-                    진행 중인 모든 작업 취소
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={props.onRetryAllFailed}
-                    className="py-3 font-bold"
-                  >
-                    실패/취소된 모든 작업 재시도
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={props.onDeleteAllFailed}
-                    className="py-3 font-bold text-destructive"
-                  >
-                    실패/취소된 모든 작업 삭제
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <JobSessionControls
+              markers={props.sessionMarkers}
+              sessionJobCounts={props.sessionJobCounts}
+              sortedMarkers={props.sortedMarkers}
+              selectedSessionId={props.selectedSessionId}
+              activeSessionState={props.activeSessionState}
+              sessionPickerOpen={props.sessionPickerOpen}
+              onSessionPickerOpenChange={props.onSessionPickerOpenChange}
+              onSelectSession={props.onSelectSession}
+              onCreateNewSession={props.onCreateNewSession}
+              paused={props.paused}
+              onTogglePause={props.onTogglePause}
+              onCancelAll={props.onCancelAll}
+              onRetryAllFailed={props.onRetryAllFailed}
+              onDeleteAllFailed={props.onDeleteAllFailed}
+              activeJobsCount={props.activeJobsCount}
+              isAliveBackend={props.isAliveBackend}
+            />
           )}
-          <div className="hidden items-center gap-1 md:flex">
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="icon" variant="ghost" className="h-8 w-8">
-                      {theme === "light" ? (
-                        <Sun className="h-4 w-4" />
-                      ) : theme === "dark" ? (
-                        <Moon className="h-4 w-4" />
-                      ) : (
-                        <Monitor className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>테마 설정</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setTheme("light")}
-                  className="gap-2"
-                >
-                  <Sun className="h-4 w-4" />
-                  라이트
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setTheme("dark")}
-                  className="gap-2"
-                >
-                  <Moon className="h-4 w-4" />
-                  다크
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setTheme("system")}
-                  className="gap-2"
-                >
-                  <Monitor className="h-4 w-4" />
-                  시스템
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <ThemeSelector />
           <div className="hidden items-center gap-2 md:flex">
-          <ServerStatus
-            name="백엔드"
-            isConnected={props.isAliveBackend && props.backendAlive}
-            okHint="백엔드와 연결되어 있습니다."
-            failHint="백엔드 서버 상태를 확인해주세요."
-          />
-          <WorkerStatus
-            workers={props.workers}
-            backendAlive={props.isAliveBackend}
-            jobs={props.jobs || []}
-          />
+            <ServerStatus
+              name="백엔드"
+              isConnected={props.isAliveBackend && props.backendAlive}
+              okHint="백엔드와 연결되어 있습니다."
+              failHint="백엔드 서버 상태를 확인해주세요."
+            />
+            <WorkerStatus
+              workers={props.workers}
+              backendAlive={props.isAliveBackend}
+              jobs={props.jobs ?? []}
+            />
           </div>
         </div>
       </div>
 
-      {/* Collapsible Filters (gallery only) */}
-      {props.activeTab === "gallery" && tb.showFilters && (
-        <div className="border-t border-line/60 bg-panel/80 px-3 py-2 md:px-4 md:py-2.5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
-              <span className="shrink-0 text-[11px] font-bold text-muted-foreground uppercase">
-                검색
-              </span>
-              <div className="max-w-lg flex-1">
-                <TagInputSearch
-                  value={tb.searchInput}
-                  tags={tb.searchTags}
-                  candidates={tb.candidates.filter((c) => {
-                    const valClean = tb.searchInput
-                      .replace(/^[@#$]/, "")
-                      .toLowerCase()
-                    return c.value.toLowerCase().includes(valClean)
-                  })}
-                  placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
-                  onValueChange={tb.setSearchInput}
-                  onAddTag={(tag) => {
-                    if (!tb.searchTags.includes(tag)) {
-                      tb.setSearchTags([...tb.searchTags, tag])
-                    }
-                    tb.setSearchInput("")
-                  }}
-                  onRemoveTag={(tag) => {
-                    tb.setSearchTags(tb.searchTags.filter((t) => t !== tag))
-                  }}
-                  size="sm"
-                />
-              </div>
-            </div>
-
-            <div className="hidden h-4 w-px shrink-0 bg-line md:block" />
-
-            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line/40 pt-2 md:border-0 md:pt-0">
-              <div className="flex cursor-pointer items-center gap-2">
-                <Checkbox
-                  id="gallery-hide-rejected"
-                  checked={tb.hideRejected}
-                  onCheckedChange={(v) => tb.setHideRejected(v === true)}
-                />
-                <Label
-                  htmlFor="gallery-hide-rejected"
-                  className="cursor-pointer text-[11px] font-bold text-muted-foreground"
-                >
-                  리젝 숨기기
-                </Label>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
-                onClick={() => {
-                  tb.setSearchTags([])
-                  tb.setSearchInput("")
-                  tb.setHideRejected(false)
-                }}
-              >
-                <XIcon className="mr-1 h-3 w-3" />
-                필터 초기화
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── SAVE DIALOG ── */}
-      {props.activeTab === "generator" && generatorToolbarProps && (
-        <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold">템플릿 저장</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                현재 작성된 템플릿 구성을 저장합니다. 새로운 이름을 입력해 주세요.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <Label htmlFor="dialog-save-name" className="text-xs font-semibold text-muted-foreground block mb-2">저장 이름</Label>
-              <Input
-                id="dialog-save-name"
-                value={generatorToolbarProps.saveName}
-                onChange={(e) => generatorToolbarProps.setSaveName(e.target.value)}
-                placeholder="저장 이름 입력..."
-                className="h-9 font-mono text-sm w-full"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    generatorToolbarProps.handleSave();
-                    setIsSaveDialogOpen(false);
-                  }
-                }}
-              />
-            </div>
-            <DialogFooter className="flex flex-row justify-end gap-2 border-t pt-3 mt-2">
-              <Button variant="outline" size="sm" onClick={() => setIsSaveDialogOpen(false)} className="h-8 px-4 text-xs font-semibold">취소</Button>
-              <Button size="sm" onClick={() => {
-                generatorToolbarProps.handleSave();
-                setIsSaveDialogOpen(false);
-              }} disabled={!generatorToolbarProps.saveName.trim() || !generatorToolbarProps.generatedCode} className="h-8 px-4 text-xs font-semibold">저장</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      <GalleryFilters active={props.activeTab === "gallery"} />
     </nav>
   )
 }

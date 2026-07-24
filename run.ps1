@@ -1,13 +1,13 @@
 # Starts backend + frontend preview.
-# Port defaults: BACKEND_PORT (default 8000), FRONTEND_PORT (default 4173).
+# Port defaults: BACKEND_PORT (default 5882), FRONTEND_PORT (default 6974).
 # Configure ComfyUI with $env:COMFYUI_WORKERS (default http://localhost:8188).
 $ErrorActionPreference = "Stop"
 
 $Root = $PSScriptRoot
 $VenvPy = "$Root\backend\.venv\Scripts\python.exe"
 
-$BackendPort = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
-$FrontendPort = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { "4173" }
+$BackendPort = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "5882" }
+$FrontendPort = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { "6974" }
 $BackendHost = if ($env:BACKEND_HOST) { $env:BACKEND_HOST } else { "127.0.0.1" }
 
 if (-not (Test-Path $VenvPy)) {

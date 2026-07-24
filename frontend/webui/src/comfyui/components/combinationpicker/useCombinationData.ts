@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { toast } from "sonner"
 import { curationApi } from "../../hooks/useSavedImages"
-import { useLatestRef } from "../../hooks/useLatestRef"
-import { hasApproved } from "../../types/Message"
-import type { SavedImage } from "../../types/Message"
+import { hasExportableApproved } from "../../types/Message"
+import type { BackendEvent, SavedImage } from "../../types/Message"
 import type { RenderItem } from "./CombinationPickerComponents"
 import {
   groupSavedImagesAsRenderItems,
@@ -10,11 +10,38 @@ import {
   type FreeGroupBy,
 } from "./freeCurationGroupers"
 
+export interface CurationGroup {
+  id: string
+  name: string
+  selectedAxis: string
+  filters: Record<string, string>
+}
+
 interface UseCombinationDataProps {
   backendUrl: string
   activeTemplate: string
   freeGroupMode: FreeGroupBy | null
   hideEmptyCurationFolders?: boolean
+  selectedAxis: string
+  setSelectedAxis: (axis: string) => void
+  activeGroupId: string
+  setActiveGroupId: (id: string) => void
+  activeFilters: Record<string, string>
+  setActiveFilters: (filters: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  setSavedGroups: (groups: CurationGroup[]) => void
+}
+
+function isAxisKey(key: string): boolean {
+  return !key.startsWith("set.") && key !== "source" && key !== "mode"
+}
+
+function axisSignature(meta: Record<string, string>): string | null {
+  const entries = Object.entries(meta)
+    .filter(([key]) => isAxisKey(key))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => [key, value])
+  return entries.length === 0 ? null : JSON.stringify(entries)
 }
 
 export function useCombinationData({
@@ -22,11 +49,77 @@ export function useCombinationData({
   activeTemplate,
   freeGroupMode,
   hideEmptyCurationFolders = false,
-}: UseCombinationDataProps) {
+  selectedAxis,
+  setSelectedAxis,
+  activeGroupId,
+  setActiveGroupId,
+  activeFilters: activeCurationFilters,
+  setActiveFilters: setActiveCurationFilters,
+  savedGroups,
+  setSavedGroups,
+}: UseCombinationDataProps): {
+  renderItems: RenderItem[]
+  rawRenderItems: RenderItem[]
+  allImages: SavedImage[]
+  setAllImages: React.Dispatch<React.SetStateAction<SavedImage[]>>
+  loading: boolean
+  error: string | null
+  fetchData: () => Promise<void>
+  imagesByFilename: Map<string, SavedImage[]>
+  doneCount: number
+  filteredRenderItems: RenderItem[]
+  unassignedGroups: Map<string, SavedImage[]>
+  unassignedTotalCount: number
+  statusFilter: "all" | "done" | "pending"
+  setStatusFilter: React.Dispatch<
+    React.SetStateAction<"all" | "done" | "pending">
+  >
+  searchTags: string[]
+  setSearchTags: React.Dispatch<React.SetStateAction<string[]>>
+  searchInput: string
+  setSearchInput: React.Dispatch<React.SetStateAction<string>>
+  candidates: { value: string; type: "filename" | "metadata" }[]
+  setStatus: (hash: string, status: SavedImage["status"]) => Promise<void>
+  batchUpdateStatus: (
+    filename: string,
+    filter: (img: SavedImage) => boolean,
+    status: SavedImage["status"]
+  ) => Promise<void>
+  approveImage: (filename: string, selectedHash: string) => Promise<void>
+  updateImageMeta: (hash: string, meta: Record<string, string>) => Promise<void>
+  uploadUserImage: (
+    file: File,
+    meta?: Record<string, string>
+  ) => Promise<{ hash: string; filename: string }>
+  activeCurationFilters: Record<string, string>
+  setActiveCurationFilters: (filters: Record<string, string>) => void
+  savedGroups: CurationGroup[]
+  activeGroupId: string
+  setActiveGroupId: (id: string) => void
+  availableFilters: Record<string, string[]>
+  saveCurationGroup: (name: string) => void
+  deleteCurationGroup: (id: string) => void
+  selectCurationGroup: (id: string) => void
+} {
   const [rawRenderItems, setRawRenderItems] = useState<RenderItem[]>([])
   const [allImages, setAllImages] = useState<SavedImage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fetchRef = useRef<{
+    id: number
+    controller: AbortController | null
+  }>({ id: 0, controller: null })
+  const hasDataRef = useRef(false)
+
+  useEffect(() => {
+    return (): void => {
+      fetchRef.current.controller?.abort()
+      fetchRef.current = {
+        id: fetchRef.current.id + 1,
+        controller: null,
+      }
+    }
+  }, [])
 
   // Filters state
   const [statusFilter, setStatusFilter] = useState<"all" | "done" | "pending">(
@@ -35,73 +128,311 @@ export function useCombinationData({
   const [searchTags, setSearchTags] = useState<string[]>([])
   const [searchInput, setSearchInput] = useState("")
 
-  // ── Refs for latest values ────────────────────────────────────────
-  const backendUrlRef = useLatestRef(backendUrl)
-  const activeTemplateRef = useLatestRef(activeTemplate)
-  const freeGroupModeRef = useLatestRef(freeGroupMode)
-
   const fetchData = useCallback(async () => {
-    if (freeGroupModeRef.current !== null) {
-      setLoading(true)
-      setError(null)
-      try {
-        const imagesRes = await fetch(`${backendUrlRef.current}/saved-images?limit=5000`)
-        if (!imagesRes.ok)
-          throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
-        const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
-        setAllImages(imagesData.items)
-        setRawRenderItems(
-          groupSavedImagesAsRenderItems(imagesData.items, freeGroupModeRef.current)
-        )
-      } catch (err) {
-        setError((err as Error).message)
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-    if (!activeTemplateRef.current.trim()) {
-      setError("CEG 템플릿을 먼저 작성해주세요.")
-      setRawRenderItems([])
-      return
-    }
-    setLoading(true)
+    fetchRef.current.controller?.abort()
+    const controller = new AbortController()
+    const requestId = fetchRef.current.id + 1
+    fetchRef.current = { id: requestId, controller }
+
+    if (!hasDataRef.current) setLoading(true)
     setError(null)
     try {
+      if (!activeTemplate.trim()) {
+        if (freeGroupMode !== null) {
+          const imagesRes = await fetch(
+            `${backendUrl}/saved-images?limit=0`,
+            { signal: controller.signal }
+          )
+          if (!imagesRes.ok)
+            throw new Error(
+              `이미지 로드 실패: HTTP ${String(imagesRes.status)}`
+            )
+          const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
+          if (fetchRef.current.id !== requestId) return
+          setAllImages(imagesData.items)
+          setRawRenderItems(
+            groupSavedImagesAsRenderItems(imagesData.items, freeGroupMode)
+          )
+          hasDataRef.current = true
+        } else {
+          setError("CEG 템플릿을 먼저 작성해주세요.")
+          setRawRenderItems([])
+        }
+        return
+      }
+
       const [renderRes, imagesRes] = await Promise.all([
-        fetch(`${backendUrlRef.current}/render`, {
+        fetch(`${backendUrl}/render`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ template: activeTemplateRef.current }),
+          body: JSON.stringify({ template: activeTemplate }),
+          signal: controller.signal,
         }),
-        fetch(`${backendUrlRef.current}/saved-images?limit=5000`),
+        fetch(`${backendUrl}/saved-images?limit=0`, {
+          signal: controller.signal,
+        }),
       ])
-      if (!renderRes.ok) throw new Error(`렌더 실패: HTTP ${renderRes.status}`)
+      if (!renderRes.ok)
+        throw new Error(`렌더 실패: HTTP ${String(renderRes.status)}`)
       if (!imagesRes.ok)
-        throw new Error(`이미지 로드 실패: HTTP ${imagesRes.status}`)
-      const renderData = (await renderRes.json()) as { items: RenderItem[] }
+        throw new Error(`이미지 로드 실패: HTTP ${String(imagesRes.status)}`)
+      const renderData = (await renderRes.json()) as {
+        items: RenderItem[]
+        sets?: Record<string, string>
+      }
       const imagesData = (await imagesRes.json()) as { items: SavedImage[] }
-      setRawRenderItems(renderData.items)
+      if (fetchRef.current.id !== requestId) return
+
+      if (freeGroupMode !== null) {
+        setRawRenderItems(
+          groupSavedImagesAsRenderItems(imagesData.items, freeGroupMode)
+        )
+      } else {
+        setRawRenderItems(renderData.items)
+      }
       setAllImages(imagesData.items)
+      hasDataRef.current = true
     } catch (err) {
+      if ((err as Error).name === "AbortError") return
+      if (fetchRef.current.id !== requestId) return
       setError((err as Error).message)
     } finally {
-      setLoading(false)
+      if (fetchRef.current.id === requestId) {
+        fetchRef.current.controller = null
+        setLoading(false)
+      }
     }
-  }, [])
+  }, [backendUrl, activeTemplate, freeGroupMode])
 
-  const imagesByFilename = useMemo(() => {
-    if (freeGroupMode !== null) {
-      return buildImagesByGroupKey(allImages, freeGroupMode)
+  const mergeSavedImage = useCallback(
+    (image: SavedImage) => {
+      setAllImages((prev) => {
+        const existingIdx = prev.findIndex((item) => item.hash === image.hash)
+        const next =
+          existingIdx === -1
+            ? [image, ...prev]
+            : prev.map((item) => (item.hash === image.hash ? image : item))
+        if (freeGroupMode !== null) {
+          setRawRenderItems(groupSavedImagesAsRenderItems(next, freeGroupMode))
+        }
+        return next
+      })
+    },
+    [freeGroupMode]
+  )
+
+  useEffect((): (() => void) => {
+    const fetchAndMergeSavedImage = async (hash: string): Promise<void> => {
+      try {
+        const res = await fetch(`${backendUrl}/saved-images/${hash}/meta`)
+        if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
+        mergeSavedImage((await res.json()) as SavedImage)
+      } catch (err) {
+        console.warn("Failed to refresh curation image:", err)
+      }
     }
-    const map = new Map<string, SavedImage[]>()
+
+    const handleImageEvent = (e: Event): void => {
+      const event = (e as CustomEvent<BackendEvent>).detail
+      if (event.type === "image.saved") {
+        void fetchAndMergeSavedImage(event.hash)
+        return
+      }
+      if (event.type === "image.curation") {
+        if (event.image !== undefined) {
+          mergeSavedImage(event.image)
+        } else if (event.hash !== undefined) {
+          void fetchAndMergeSavedImage(event.hash)
+        }
+        return
+      }
+      if (event.type === "image.deleted") {
+        setAllImages((prev) => {
+          const next = prev.filter((image) => image.hash !== event.hash)
+          if (freeGroupMode !== null) {
+            setRawRenderItems(
+              groupSavedImagesAsRenderItems(next, freeGroupMode)
+            )
+          }
+          return next
+        })
+      }
+    }
+
+    window.addEventListener("ceg-image-event", handleImageEvent)
+    return () => {
+      window.removeEventListener("ceg-image-event", handleImageEvent)
+    }
+  }, [backendUrl, freeGroupMode, mergeSavedImage])
+
+  const availableFilters = useMemo(() => {
+    const keys: Record<string, Set<string>> = {}
     for (const img of allImages) {
       if (img.status === "trashed") continue
-      if (!map.has(img.originalFilename)) map.set(img.originalFilename, [])
-      map.get(img.originalFilename)!.push(img)
+      const imgMeta = img.meta ?? {}
+      for (const [mKey, mVal] of Object.entries(imgMeta)) {
+        if (mKey.startsWith("set.")) {
+          const varName = mKey.slice("set.".length)
+          keys[varName] ??= new Set<string>()
+          if (mVal) {
+            keys[varName].add(mVal)
+          }
+        }
+      }
+    }
+    const result: Record<string, string[]> = {}
+    for (const [k, v] of Object.entries(keys)) {
+      result[k] = Array.from(v).sort()
+    }
+    return result
+  }, [allImages])
+
+  const saveCurationGroup = useCallback(
+    (name: string) => {
+      const trimmed = name.trim()
+      if (!trimmed) return
+
+      const existing = savedGroups.find((g) => g.id === activeGroupId)
+      if (existing) {
+        const updated = savedGroups.map((g) =>
+          g.id === activeGroupId
+            ? {
+                ...g,
+                selectedAxis,
+                filters: activeCurationFilters,
+              }
+            : g
+        )
+        setSavedGroups(updated)
+        toast.success("큐레이션 그룹이 업데이트되었습니다.")
+      } else {
+        const next: CurationGroup = {
+          id: `group-${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+          name: trimmed,
+          selectedAxis,
+          filters: activeCurationFilters,
+        }
+        setSavedGroups([...savedGroups, next])
+        setActiveGroupId(next.id)
+        toast.success("새 큐레이션 그룹이 저장되었습니다.")
+      }
+    },
+    [
+      activeGroupId,
+      savedGroups,
+      selectedAxis,
+      activeCurationFilters,
+      setSavedGroups,
+      setActiveGroupId,
+    ]
+  )
+
+  const deleteCurationGroup = useCallback(
+    (id: string) => {
+      setSavedGroups(savedGroups.filter((g) => g.id !== id))
+      if (activeGroupId === id) {
+        setActiveGroupId("__all__")
+        setActiveCurationFilters({})
+      }
+      toast.success("큐레이션 그룹이 삭제되었습니다.")
+    },
+    [
+      activeGroupId,
+      savedGroups,
+      setSavedGroups,
+      setActiveGroupId,
+      setActiveCurationFilters,
+    ]
+  )
+
+  const selectCurationGroup = useCallback(
+    (id: string) => {
+      if (id === "__all__") {
+        setActiveGroupId("__all__")
+        setActiveCurationFilters({})
+        return
+      }
+      if (id.startsWith("preset:")) {
+        const axis = id.slice("preset:".length)
+        setActiveGroupId(id)
+        setActiveCurationFilters({})
+        setSelectedAxis(axis)
+        return
+      }
+      const group = savedGroups.find((g) => g.id === id)
+      if (group) {
+        setActiveGroupId(id)
+        setActiveCurationFilters(group.filters)
+        setSelectedAxis(group.selectedAxis)
+      }
+    },
+    [savedGroups, setSelectedAxis, setActiveGroupId, setActiveCurationFilters]
+  )
+  const updateActiveCurationFilters = useCallback(
+    (filters: Record<string, string>) => {
+      setActiveCurationFilters(filters)
+      setActiveGroupId("custom")
+    },
+    [setActiveCurationFilters, setActiveGroupId]
+  )
+
+  const renderItemIndex = useMemo(() => {
+    const filenameBySignature = new Map<string, string>()
+    const filenames = new Set<string>()
+    for (const item of rawRenderItems) {
+      filenames.add(item.filename)
+      const signature = axisSignature(item.meta)
+      if (signature !== null && !filenameBySignature.has(signature)) {
+        filenameBySignature.set(signature, item.filename)
+      }
+    }
+    return { filenameBySignature, filenames }
+  }, [rawRenderItems])
+
+  const imagesByFilename = useMemo(() => {
+    // 1. 글로벌 필터 및 trashed 필터링 우선 적용 (템플릿/자유 모드 공통)
+    const filteredImages = allImages.filter((img) => {
+      if (img.status === "trashed") return false
+
+      const imgMeta = img.meta ?? {}
+      for (const [key, expectedVal] of Object.entries(activeCurationFilters)) {
+        const actualVal = imgMeta[`set.${key}`]
+        if (actualVal === undefined || actualVal !== expectedVal) {
+          return false
+        }
+      }
+      return true
+    })
+
+    if (freeGroupMode !== null) {
+      return buildImagesByGroupKey(filteredImages, freeGroupMode)
+    }
+
+    const map = new Map<string, SavedImage[]>()
+    for (const img of filteredImages) {
+      let matchedFilename: string | null = null
+      const imgMeta = img.meta ?? {}
+      const signature = axisSignature(imgMeta)
+      if (signature !== null) {
+        matchedFilename =
+          renderItemIndex.filenameBySignature.get(signature) ?? null
+      }
+
+      if (
+        matchedFilename === null &&
+        renderItemIndex.filenames.has(img.originalFilename)
+      ) {
+        matchedFilename = img.originalFilename
+      }
+
+      if (matchedFilename !== null) {
+        const images = map.get(matchedFilename)
+        if (images === undefined) map.set(matchedFilename, [img])
+        else images.push(img)
+      }
     }
     return map
-  }, [allImages, freeGroupMode])
+  }, [allImages, freeGroupMode, activeCurationFilters, renderItemIndex])
 
   const renderItems = useMemo(() => {
     if (!hideEmptyCurationFolders) return rawRenderItems
@@ -114,7 +445,10 @@ export function useCombinationData({
   const doneCount = useMemo(
     () =>
       renderItems.filter((ri) =>
-        hasApproved(imagesByFilename.get(ri.filename) ?? [])
+        hasExportableApproved(
+          ri.filename,
+          imagesByFilename.get(ri.filename) ?? []
+        )
       ).length,
     [renderItems, imagesByFilename]
   )
@@ -131,7 +465,7 @@ export function useCombinationData({
         list.push({ value: `@${ri.filename}`, type: "filename" })
       }
       for (const v of Object.values(ri.meta)) {
-        const cleanV = String(v).trim()
+        const cleanV = v.trim()
         if (cleanV && !metaValuesSeen.has(cleanV)) {
           metaValuesSeen.add(cleanV)
           list.push({ value: `$${cleanV}`, type: "metadata" })
@@ -144,7 +478,7 @@ export function useCombinationData({
   const filteredRenderItems = useMemo(() => {
     return renderItems.filter((ri) => {
       const imgs = imagesByFilename.get(ri.filename) ?? []
-      const isDone = hasApproved(imgs)
+      const isDone = hasExportableApproved(ri.filename, imgs)
 
       if (statusFilter === "done" && !isDone) return false
       if (statusFilter === "pending" && isDone) return false
@@ -183,7 +517,10 @@ export function useCombinationData({
 
       // 4. 입력 중인 임시 검색어 필터링
       if (searchInput.trim()) {
-        const cleanSearch = searchInput.replace(/^[@$]/, "").toLowerCase().trim()
+        const cleanSearch = searchInput
+          .replace(/^[@$]/, "")
+          .toLowerCase()
+          .trim()
         if (cleanSearch) {
           const inFilename = ri.filename.toLowerCase().includes(cleanSearch)
           const inMetadata = metaValues.some((v) => v.includes(cleanSearch))
@@ -193,27 +530,29 @@ export function useCombinationData({
 
       return true
     })
-  }, [
-    renderItems,
-    imagesByFilename,
-    statusFilter,
-    searchTags,
-    searchInput,
-  ])
+  }, [renderItems, imagesByFilename, statusFilter, searchTags, searchInput])
 
   const unassignedGroups = useMemo(() => {
     if (freeGroupMode !== null) return new Map<string, SavedImage[]>()
-    const renderFilenames = new Set(rawRenderItems.map((ri) => ri.filename))
     const map = new Map<string, SavedImage[]>()
+
+    const assignedHashes = new Set<string>()
+    for (const imgs of imagesByFilename.values()) {
+      for (const img of imgs) {
+        assignedHashes.add(img.hash)
+      }
+    }
+
     for (const img of allImages) {
       if (img.status === "trashed") continue
-      if (!renderFilenames.has(img.originalFilename)) {
-        if (!map.has(img.originalFilename)) map.set(img.originalFilename, [])
-        map.get(img.originalFilename)!.push(img)
+      if (!assignedHashes.has(img.hash)) {
+        const images = map.get(img.originalFilename)
+        if (images === undefined) map.set(img.originalFilename, [img])
+        else images.push(img)
       }
     }
     return map
-  }, [allImages, rawRenderItems, freeGroupMode])
+  }, [allImages, imagesByFilename, freeGroupMode])
 
   const unassignedTotalCount = useMemo(
     () =>
@@ -288,8 +627,50 @@ export function useCombinationData({
     [backendUrl, imagesByFilename]
   )
 
+  const updateImageMeta = useCallback(
+    async (hash: string, meta: Record<string, string>) => {
+      setAllImages((prev) =>
+        prev.map((img) => (img.hash === hash ? { ...img, meta } : img))
+      )
+      await curationApi.patchMeta(backendUrl, hash, meta)
+    },
+    [backendUrl]
+  )
+
+  const uploadUserImage = useCallback(
+    async (file: File, meta?: Record<string, string>) => {
+      const form = new FormData()
+      form.append("file", file)
+      if (meta) {
+        form.append("meta", JSON.stringify(meta))
+      }
+      setLoading(true)
+      try {
+        const res = await fetch(`${backendUrl}/saved-images/upload`, {
+          method: "POST",
+          body: form,
+        })
+        if (!res.ok) {
+          const text = await res.text().catch(() => res.statusText)
+          throw new Error(`이미지 업로드 실패: ${text}`)
+        }
+        const resJson = (await res.json()) as { hash: string; filename: string }
+        toast.success("이미지가 성공적으로 업로드되었습니다.")
+        await fetchData()
+        return resJson
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "업로드 실패")
+        throw err
+      } finally {
+        setLoading(false)
+      }
+    },
+    [backendUrl, fetchData]
+  )
+
   return {
     renderItems,
+    rawRenderItems,
     allImages,
     setAllImages,
     loading,
@@ -310,5 +691,16 @@ export function useCombinationData({
     setStatus,
     batchUpdateStatus,
     approveImage,
+    updateImageMeta,
+    uploadUserImage,
+    activeCurationFilters,
+    setActiveCurationFilters: updateActiveCurationFilters,
+    savedGroups,
+    activeGroupId,
+    setActiveGroupId,
+    availableFilters,
+    saveCurationGroup,
+    deleteCurationGroup,
+    selectCurationGroup,
   }
 }

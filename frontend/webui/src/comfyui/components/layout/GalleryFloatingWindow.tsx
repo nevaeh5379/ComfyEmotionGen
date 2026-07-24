@@ -71,7 +71,7 @@ export function GalleryFloatingWindow({
   imageLazyLoad,
   singleDownloadMode,
   tb,
-}: GalleryFloatingWindowProps) {
+}: GalleryFloatingWindowProps): JSX.Element | null {
   if (!isOpen) return null
 
   return (
@@ -102,19 +102,9 @@ export function GalleryFloatingWindow({
             </SelectTrigger>
             <SelectContent>
               {(
-                [
-                  "all",
-                  "pending",
-                  "approved",
-                  "rejected",
-                  "trashed",
-                ] as const
+                ["all", "pending", "approved", "rejected", "trashed"] as const
               ).map((s) => (
-                <SelectItem
-                  key={s}
-                  value={s}
-                  className="text-[12px] font-bold"
-                >
+                <SelectItem key={s} value={s} className="text-[12px] font-bold">
                   {s === "all"
                     ? "전체"
                     : s === "pending"
@@ -173,22 +163,13 @@ export function GalleryFloatingWindow({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem
-                value="createdAt"
-                className="text-[12px] font-bold"
-              >
+              <SelectItem value="createdAt" className="text-[12px] font-bold">
                 날짜순
               </SelectItem>
-              <SelectItem
-                value="filename"
-                className="text-[12px] font-bold"
-              >
+              <SelectItem value="filename" className="text-[12px] font-bold">
                 파일명순
               </SelectItem>
-              <SelectItem
-                value="sizeBytes"
-                className="text-[12px] font-bold"
-              >
+              <SelectItem value="sizeBytes" className="text-[12px] font-bold">
                 크기순
               </SelectItem>
             </SelectContent>
@@ -200,9 +181,9 @@ export function GalleryFloatingWindow({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() =>
+                onClick={() => {
                   tb.setSortDir(tb.sortDir === "asc" ? "desc" : "asc")
-                }
+                }}
                 className="!h-7 !w-7 shrink-0 border-line bg-background p-0 shadow-none hover:bg-muted"
               >
                 {tb.sortDir === "asc" ? (
@@ -236,9 +217,9 @@ export function GalleryFloatingWindow({
                 max="300"
                 step="10"
                 value={tb.thumbnailSize}
-                onChange={(e) =>
+                onChange={(e) => {
                   tb.setThumbnailSize(Number(e.target.value))
-                }
+                }}
                 className="h-1 w-12 cursor-pointer appearance-none rounded-lg bg-muted accent-primary focus:outline-none"
               />
               <span className="w-[34px] text-right font-mono text-[9px] font-bold whitespace-nowrap text-muted-foreground tabular-nums">
@@ -256,7 +237,9 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0"
-                onClick={tb.handleRefresh}
+                onClick={() => {
+                  tb.handleRefresh()
+                }}
               >
                 <RefreshCwIcon className="h-3.5 w-3.5" />
               </Button>
@@ -273,7 +256,9 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0"
-                onClick={tb.handleExport}
+                onClick={() => {
+                  void tb.handleExport()
+                }}
               >
                 <DownloadIcon className="h-3.5 w-3.5" />
               </Button>
@@ -290,7 +275,9 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant="outline"
                 className="!h-7 !w-7 p-0 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-                onClick={tb.handleEmptyTrash}
+                onClick={() => {
+                  void tb.handleEmptyTrash()
+                }}
               >
                 <Trash2Icon className="h-3.5 w-3.5" />
               </Button>
@@ -307,7 +294,9 @@ export function GalleryFloatingWindow({
                 size="sm"
                 variant={tb.showFilters ? "secondary" : "outline"}
                 className="relative !h-7 !w-7 p-0"
-                onClick={() => tb.setShowFilters(!tb.showFilters)}
+                onClick={() => {
+                  tb.setShowFilters(!tb.showFilters)
+                }}
               >
                 <FilterIcon className="h-3.5 w-3.5" />
                 {tb.hasAnyFilter && (
@@ -334,7 +323,9 @@ export function GalleryFloatingWindow({
                     return c.value.toLowerCase().includes(valClean)
                   })}
                   placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
-                  onValueChange={(val: string) => tb.setSearchInput(val)}
+                  onValueChange={(val: string) => {
+                    tb.setSearchInput(val)
+                  }}
                   onAddTag={(tag: string) => {
                     if (!tb.searchTags.includes(tag)) {
                       tb.setSearchTags([...tb.searchTags, tag])

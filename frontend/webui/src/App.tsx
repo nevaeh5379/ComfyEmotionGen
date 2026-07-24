@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
 // ── Hooks ──
 import { useWindowManager } from "./comfyui/hooks/useWindowManager"
@@ -11,26 +19,24 @@ import { useSyncedStorage } from "./comfyui/hooks/useSyncedStorage"
 import { useOfflineSync } from "./comfyui/hooks/useOfflineSync"
 import { useJobRunner } from "./comfyui/hooks/useJobRunner"
 import { useJobActions } from "./comfyui/hooks/useJobActions"
-import { useBackendHealth } from "./comfyui/hooks/useBackendHealth"
 import { useBackendUrl } from "./comfyui/hooks/useBackendUrl"
 
 // ── Contexts ──
-import { CurationToolbarProvider } from "./comfyui/components/combinationpicker/CurationToolbarTypes"
+import {
+  CurationToolbarProvider,
+  type CurationGroup,
+} from "./comfyui/components/combinationpicker/CurationToolbarTypes"
 import { useTemplateContext } from "./comfyui/contexts/useTemplateContext"
 import { useWorkflowContext } from "./comfyui/contexts/WorkflowContext"
 import { useNodeMappingContext } from "./comfyui/contexts/NodeMappingContext"
 import { TemplateProvider } from "./comfyui/contexts/TemplateContext"
-import { WorkflowProvider } from "./comfyui/contexts/WorkflowContext"
-import { NodeMappingProvider } from "./comfyui/contexts/NodeMappingContext"
-import {
-  PendingDialogProvider,
-  usePendingDialog,
-} from "./comfyui/contexts/PendingDialogContext"
-import { PanelLayoutProvider } from "./comfyui/contexts/PanelLayoutContext"
-import {
-  GalleryToolbarProvider,
-  useGalleryToolbar,
-} from "./comfyui/contexts/GalleryToolbarContext"
+import { WorkflowProvider } from "./comfyui/contexts/WorkflowProvider"
+import { NodeMappingProvider } from "./comfyui/contexts/NodeMappingProvider"
+import { PendingDialogProvider } from "./comfyui/contexts/PendingDialogProvider"
+import { usePendingDialog } from "./comfyui/contexts/PendingDialogContext"
+import { PanelLayoutProvider } from "./comfyui/contexts/PanelLayoutProvider"
+import { GalleryToolbarProvider } from "./comfyui/contexts/GalleryToolbarProvider"
+import { useGalleryToolbar } from "./comfyui/contexts/GalleryToolbarContext"
 
 // ── Constants / Utilities ──
 import { DEFAULT_AXIS } from "./comfyui/components/combinationpicker/freeCurationGroupers"
@@ -43,46 +49,110 @@ import { API } from "./lib/api"
 import { STORAGE_KEYS } from "./lib/storageKeys"
 import { NAME_CONFLICT_START_NUMBER } from "./lib/constants"
 import type { NodeMapping } from "./lib/workflow"
+import type { ObjectInfo } from "./comfyui/types/renderTypes"
 import { toast } from "sonner"
 
 // ── Layout ──
 import { Header } from "./comfyui/components/layout/Header"
 import { FloatingWindow } from "./comfyui/components/layout/FloatingWindow"
-import { GalleryFloatingWindow } from "./comfyui/components/layout/GalleryFloatingWindow"
 import type { TabId } from "./comfyui/components/layout/nav-tabs"
 
-// ── Tab Components ──
-import { JobsTab } from "./comfyui/components/tabs/JobsTab"
-import { GalleryTab } from "./comfyui/components/tabs/GalleryTab"
-import { CurationTab } from "./comfyui/components/tabs/CurationTab"
-import { StatsTab } from "./comfyui/components/tabs/StatsTab"
-import { GeneratorTab } from "./comfyui/components/tabs/GeneratorTab"
-import { SettingsTab } from "./comfyui/components/tabs/SettingsTab"
-
-// ── Dialog Components ──
-import { ParserPreviewDialog } from "./comfyui/components/ParserPreviewDialog"
-import { AxisFilterSheet } from "./comfyui/components/AxisFilterSheet"
-import { SelectionSheet } from "./comfyui/components/SelectionSheet"
-import { NameConflictDialog } from "./comfyui/components/NameConflictDialog"
-import { PresetSelectionDialog } from "./comfyui/components/PresetSelectionDialog"
-import { VersionDiffDialog } from "./comfyui/components/VersionDiffDialog"
-import { KeyboardShortcutsDialog } from "./comfyui/components/KeyboardShortcutsDialog"
 import { JobStatusPopup } from "./comfyui/components/JobStatusPopup"
-import { WorkflowGraphViewer } from "./comfyui/components/WorkflowGraphViewer"
-
-// ── Floating Window Content ──
-import { WorkCompositionPanel } from "./comfyui/components/WorkCompositionPanel"
-import { JobManagerPanel } from "./comfyui/components/JobManagerPanel"
-import { StatisticsPanel } from "./comfyui/components/StatisticsPanel"
-import { CombinationPicker } from "./comfyui/components/combinationpicker/CombinationPicker"
 
 import { cn } from "@/lib/utils"
 import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from "lucide-react"
 
+const JobsTab = lazy(async () => {
+  const module = await import("./comfyui/components/tabs/JobsTab")
+  return { default: module.JobsTab }
+})
+const GalleryTab = lazy(async () => {
+  const module = await import("./comfyui/components/tabs/GalleryTab")
+  return { default: module.GalleryTab }
+})
+const CurationTab = lazy(async () => {
+  const module = await import("./comfyui/components/tabs/CurationTab")
+  return { default: module.CurationTab }
+})
+const StatsTab = lazy(async () => {
+  const module = await import("./comfyui/components/tabs/StatsTab")
+  return { default: module.StatsTab }
+})
+const GeneratorTab = lazy(async () => {
+  const module = await import("./comfyui/components/tabs/GeneratorTab")
+  return { default: module.GeneratorTab }
+})
+const SettingsTab = lazy(async () => {
+  const module = await import("./comfyui/components/tabs/SettingsTab")
+  return { default: module.SettingsTab }
+})
+const EditorTab = lazy(async () => {
+  const module = await import("./comfyui/components/tabs/EditorTab")
+  return { default: module.EditorTab }
+})
+const GalleryFloatingWindow = lazy(async () => {
+  const module =
+    await import("./comfyui/components/layout/GalleryFloatingWindow")
+  return { default: module.GalleryFloatingWindow }
+})
+const WorkCompositionPanel = lazy(async () => {
+  const module = await import("./comfyui/components/WorkCompositionPanel")
+  return { default: module.WorkCompositionPanel }
+})
+const JobManagerPanel = lazy(async () => {
+  const module = await import("./comfyui/components/JobManagerPanel")
+  return { default: module.JobManagerPanel }
+})
+const StatisticsPanel = lazy(async () => {
+  const module = await import("./comfyui/components/StatisticsPanel")
+  return { default: module.StatisticsPanel }
+})
+const CombinationPicker = lazy(async () => {
+  const module =
+    await import("./comfyui/components/combinationpicker/CombinationPicker")
+  return { default: module.CombinationPicker }
+})
+const ParserPreviewDialog = lazy(async () => {
+  const module = await import("./comfyui/components/ParserPreviewDialog")
+  return { default: module.ParserPreviewDialog }
+})
+const AxisFilterSheet = lazy(async () => {
+  const module = await import("./comfyui/components/AxisFilterSheet")
+  return { default: module.AxisFilterSheet }
+})
+const SelectionSheet = lazy(async () => {
+  const module = await import("./comfyui/components/SelectionSheet")
+  return { default: module.SelectionSheet }
+})
+const NameConflictDialog = lazy(async () => {
+  const module = await import("./comfyui/components/NameConflictDialog")
+  return { default: module.NameConflictDialog }
+})
+const PresetSelectionDialog = lazy(async () => {
+  const module = await import("./comfyui/components/PresetSelectionDialog")
+  return { default: module.PresetSelectionDialog }
+})
+const VersionDiffDialog = lazy(async () => {
+  const module = await import("./comfyui/components/VersionDiffDialog")
+  return { default: module.VersionDiffDialog }
+})
+const KeyboardShortcutsDialog = lazy(async () => {
+  const module = await import("./comfyui/components/KeyboardShortcutsDialog")
+  return { default: module.KeyboardShortcutsDialog }
+})
+
+function FeatureLoadingFallback(): React.JSX.Element {
+  return (
+    <div className="flex min-h-24 flex-1 items-center justify-center text-xs text-muted-foreground">
+      화면 불러오는 중…
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // App — Root component with providers
 // ---------------------------------------------------------------------------
-export function App() {
+export function App(): React.JSX.Element {
   useOfflineSync()
 
   const [storedBackendUrl] = useLocalStorage(
@@ -90,7 +160,7 @@ export function App() {
     DEFAULT_BACKEND_URL
   )
   const backendUrl = IS_PACKAGE_MODE
-    ? (PACKAGE_BACKEND_URL as string)
+    ? (PACKAGE_BACKEND_URL ?? storedBackendUrl)
     : storedBackendUrl
 
   return (
@@ -113,8 +183,9 @@ export function App() {
 // ---------------------------------------------------------------------------
 // AppContent — Inside all contexts
 // ---------------------------------------------------------------------------
-function AppContent() {
+function AppContent(): React.JSX.Element {
   // ── Backend ──
+
   const { isConnected: backendAlive, jobs, workers, paused } = useBackend()
 
   // ── Backend URL state ──
@@ -124,11 +195,10 @@ function AppContent() {
     DEFAULT_BACKEND_URL
   )
   const setBackendUrl = IS_PACKAGE_MODE
-    ? (_: string) => {}
+    ? (_: string): void => {
+        /* no-op in package mode */
+      }
     : setStoredBackendUrl
-
-  // ── Backend health ──
-  const { isAliveBackend } = useBackendHealth()
 
   // ── Settings ──
   const { settings, updateSetting } = useSettings()
@@ -160,7 +230,6 @@ function AppContent() {
     "ceg"
   )
   const [isSheetOpen, setIsSheetOpen] = useState(false)
-  const [isGraphOpen, setIsGraphOpen] = useState(false)
   const [isAxisFilterOpen, setIsAxisFilterOpen] = useState(false)
   const [isSelectionOpen, setIsSelectionOpen] = useState(false)
   const [previewFilter, setPreviewFilter] = useState("")
@@ -177,10 +246,19 @@ function AppContent() {
   >("ceg_jobsPanelOrder", "composition-first")
 
   // ── Curation toolbar ──
-  const [curationSelectedAxis, setCurationSelectedAxis] = useSyncedStorage(
-    STORAGE_KEYS.curationSelectedAxis,
-    DEFAULT_AXIS
-  )
+  const [curationSelectedAxis, setCurationSelectedAxis] =
+    useSyncedStorage<string>(STORAGE_KEYS.curationSelectedAxis, DEFAULT_AXIS)
+  const [curationSavedGroups, setCurationSavedGroups] = useSyncedStorage<
+    CurationGroup[]
+  >(STORAGE_KEYS.curationSavedGroups, [])
+  const [curationActiveGroupId, setCurationActiveGroupId] =
+    useSyncedStorage<string>(
+      STORAGE_KEYS.curationActiveGroupId,
+      "preset:template:__current__"
+    )
+  const [curationActiveFilters, setCurationActiveFilters] = useSyncedStorage<
+    Record<string, string>
+  >(STORAGE_KEYS.curationActiveFilters, {})
 
   // ── Window manager ──
   const {
@@ -249,11 +327,14 @@ function AppContent() {
       const totalJobs = session.sessionJobs.length
       if (totalJobs > 0) {
         const doneCount = session.sessionCounts.done
-        const errorCount = session.sessionCounts.error + session.sessionCounts.cancelled
+        const errorCount =
+          session.sessionCounts.error + session.sessionCounts.cancelled
         if (errorCount > 0) {
-          toast.info(`배치 완료! (${doneCount} 완료, ${errorCount} 실패/취소)`)
+          toast.info(
+            `배치 완료! (${String(doneCount)} 완료, ${String(errorCount)} 실패/취소)`
+          )
         } else {
-          toast.success(`모든 작업이 완료되었습니다! (${doneCount}개)`)
+          toast.success(`모든 작업이 완료되었습니다! (${String(doneCount)}개)`)
         }
         fetch(`${backendUrl}${API.webhooks.batchComplete}`, {
           method: "POST",
@@ -263,7 +344,9 @@ function AppContent() {
             error: errorCount,
             total: totalJobs,
           }),
-        }).catch(() => {})
+        }).catch(() => {
+          /* intentionally empty - fire and forget */
+        })
       }
     }
     prevActiveCount.current = current
@@ -277,12 +360,15 @@ function AppContent() {
   ])
 
   // ── Job actions ──
-  const jobActions = useJobActions()
+  const jobActions = useJobActions(session)
 
   // ── Job runner ──
   const {
     fakeJobQueue,
     renderResponse,
+    parserError,
+    parserErrorLine,
+    parserErrorColumn,
     axisValueFilter,
     setAxisValueFilter,
     collapsedAxes,
@@ -290,6 +376,7 @@ function AppContent() {
     repeatCount,
     setRepeatCount,
     handleRun,
+    handleRunSingle,
     handleRunSelected,
     handleRandomRun,
     handleRunUnapproved,
@@ -308,6 +395,7 @@ function AppContent() {
     filteredByAxisSet,
     hasActiveFilter,
     selectedCount,
+    isAliveBackend,
   } = useJobRunner()
 
   // ── Derived state ──
@@ -323,23 +411,30 @@ function AppContent() {
 
   const canRun =
     Boolean(workflow.workflowJson) && isAliveBackend && backendAlive
+  const setObjectInfo = nodeMapping.setObjectInfo
 
   // ── Object info fetch ──
   useEffect(() => {
     if (!isAliveBackend) return
-    fetch(`${backendUrl}${API.objectInfo}`)
+    const controller = new AbortController()
+    fetch(`${backendUrl}${API.objectInfo}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) nodeMapping.setObjectInfo(data)
+        if (data !== null && typeof data === "object")
+          setObjectInfo(data as ObjectInfo)
       })
-      .catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backendUrl, isAliveBackend])
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return
+      })
+    return (): void => {
+      controller.abort()
+    }
+  }, [backendUrl, isAliveBackend, setObjectInfo])
 
   // ── Quick save handler (Ctrl+S shortcut) ──
   const handleQuickSave = useCallback(() => {
     if (compositionTab === "ceg") {
-      if (template.activeTemplateId) {
+      if (template.activeTemplateId !== null) {
         const active = template.savedTemplates.find(
           (t) => t.id === template.activeTemplateId
         )
@@ -358,6 +453,35 @@ function AppContent() {
     }
   }, [compositionTab, template, workflow])
 
+  const handleSaveCurationCegTemplate = useCallback(
+    (nextTemplate: string): void => {
+      if (template.activeTemplateId !== null) {
+        const active = template.savedTemplates.find(
+          (item) => item.id === template.activeTemplateId
+        )
+        if (active !== undefined) {
+          template.saveTemplate(active.name, nextTemplate)
+          template.setCegTemplate(nextTemplate)
+          template.setTemplateResetKey((key) => key + 1)
+          toast.success("CEG 템플릿 프리셋에 저장했습니다.")
+          return
+        }
+      }
+      const now = new Date()
+      const name = `큐레이션 수정 ${String(now.getFullYear())}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(
+        now.getHours()
+      ).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+      const newPreset = template.saveTemplate(name, nextTemplate)
+      template.setCegTemplate(nextTemplate)
+      template.setActiveTemplateId(newPreset.id)
+      template.setTemplateResetKey((key) => key + 1)
+      toast.success("새 CEG 템플릿 프리셋으로 저장했습니다.")
+    },
+    [template]
+  )
+
   // ── Tab Change Scroll Lock Cleanup ──
   useEffect(() => {
     // Reset body style modifications (e.g. from Radix UI Dialogs/Sheets or ImageViewer)
@@ -370,20 +494,25 @@ function AppContent() {
   useGlobalShortcuts({
     activeTab,
     mobileJobTab,
+
     canRun,
-    handleRun,
+    handleRun: () => {
+      void handleRun()
+    },
     handleSave: handleQuickSave,
     handleGalleryRefresh: tb.handleRefresh,
     setActiveTab,
-    toggleShortcuts: () => setShortcutsOpen((prev) => !prev),
+    toggleShortcuts: () => {
+      setShortcutsOpen((prev) => !prev)
+    },
   })
 
   // ── Name conflict helpers ──
   const nextFreeName = (name: string, items: { name: string }[]): string => {
     if (!items.some((x) => x.name === name)) return name
     let n = NAME_CONFLICT_START_NUMBER
-    while (items.some((x) => x.name === `${name} (${n})`)) n++
-    return `${name} (${n})`
+    while (items.some((x) => x.name === `${name} (${String(n)})`)) n++
+    return `${name} (${String(n)})`
   }
 
   const pendingSaveItems =
@@ -393,7 +522,7 @@ function AppContent() {
         ? workflow.savedWorkflows
         : nodeMapping.savedNodeMappings
 
-  const handleNameConflictSaveNew = () => {
+  const handleNameConflictSaveNew = (): void => {
     if (!pendingSave) return
     const newName = nextFreeName(pendingSave.name, pendingSaveItems)
     if (pendingSave.type === "template") {
@@ -404,7 +533,7 @@ function AppContent() {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId) {
+      if (workflow.activeWorkflowId !== null) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           newName,
@@ -416,7 +545,7 @@ function AppContent() {
     setPendingSave(null)
   }
 
-  const handleNameConflictOverwrite = () => {
+  const handleNameConflictOverwrite = (): void => {
     if (!pendingSave) return
     if (pendingSave.type === "template") {
       template.saveTemplate(pendingSave.name, template.cegTemplate)
@@ -426,7 +555,7 @@ function AppContent() {
       workflow.setActiveWorkflowId(w.id)
       workflow.setWorkflowResetKey((k) => k + 1)
     } else {
-      if (workflow.activeWorkflowId) {
+      if (workflow.activeWorkflowId !== null) {
         nodeMapping.saveMappingPreset(
           workflow.activeWorkflowId,
           pendingSave.name,
@@ -438,128 +567,160 @@ function AppContent() {
     setPendingSave(null)
   }
 
-  const runnerProps = useMemo(() => ({
-    fakeJobQueue,
-    hasActiveFilter,
-    estimatedRunCount,
-    repeatCount,
-    setRepeatCount,
-    handleRun,
-    handleRandomRun,
-    handleRunUnapproved,
-    randomRunCount,
-    setRandomRunCount,
-    targetWorkerId,
-    setTargetWorkerId,
-  }), [
-    fakeJobQueue,
-    hasActiveFilter,
-    estimatedRunCount,
-    repeatCount,
-    setRepeatCount,
-    handleRun,
-    handleRandomRun,
-    handleRunUnapproved,
-    randomRunCount,
-    setRandomRunCount,
-    targetWorkerId,
-    setTargetWorkerId,
-  ])
+  const runnerProps = useMemo(
+    () => ({
+      fakeJobQueue,
+      hasActiveFilter,
+      estimatedRunCount,
+      repeatCount,
+      setRepeatCount,
+      handleRun,
+      handleRunSingle,
+      handleRandomRun,
+      handleRunUnapproved,
+      randomRunCount,
+      setRandomRunCount,
+      targetWorkerId,
+      setTargetWorkerId,
+      axisValueFilter,
+      setAxisValueFilter,
+      renderResponse,
+      filteredByAxisSet,
+      parserError,
+      parserErrorLine,
+      parserErrorColumn,
+    }),
+    [
+      fakeJobQueue,
+      hasActiveFilter,
+      estimatedRunCount,
+      repeatCount,
+      setRepeatCount,
+      handleRun,
+      handleRunSingle,
+      handleRandomRun,
+      handleRunUnapproved,
+      randomRunCount,
+      setRandomRunCount,
+      targetWorkerId,
+      setTargetWorkerId,
+      axisValueFilter,
+      setAxisValueFilter,
+      renderResponse,
+      filteredByAxisSet,
+      parserError,
+      parserErrorLine,
+      parserErrorColumn,
+    ]
+  )
 
-  const windowManagerProps = useMemo(() => ({
-    isCompositionFloating,
-    setIsCompositionFloating,
-    compositionFloatingPos,
-    setCompositionFloatingPos,
-    compositionFloatingSize,
-    setCompositionFloatingSize,
-    isJobManagerFloating,
-    setIsJobManagerFloating,
-    jobManagerFloatingPos,
-    setJobManagerFloatingPos,
-    jobManagerFloatingSize,
-    setJobManagerFloatingSize,
-    isGalleryFloating,
-    setIsGalleryFloating,
-    galleryFloatingPos,
-    setGalleryFloatingPos,
-    galleryFloatingSize,
-    setGalleryFloatingSize,
-    isGalleryDocked,
-    setIsGalleryDocked,
-    galleryDockedSide,
-    isStatsFloating,
-    setIsStatsFloating,
-    statsFloatingPos,
-    setStatsFloatingPos,
-    statsFloatingSize,
-    setStatsFloatingSize,
-    isStatsDocked,
-    setIsStatsDocked,
-    statsDockedSide,
-    isCurationFloating,
-    setIsCurationFloating,
-    curationFloatingPos,
-    setCurationFloatingPos,
-    curationFloatingSize,
-    setCurationFloatingSize,
-    isCurationDocked,
-    setIsCurationDocked,
-    curationDockedSide,
-    handleHeaderDragStart,
-  }), [
-    isCompositionFloating,
-    setIsCompositionFloating,
-    compositionFloatingPos,
-    setCompositionFloatingPos,
-    compositionFloatingSize,
-    setCompositionFloatingSize,
-    isJobManagerFloating,
-    setIsJobManagerFloating,
-    jobManagerFloatingPos,
-    setJobManagerFloatingPos,
-    jobManagerFloatingSize,
-    setJobManagerFloatingSize,
-    isGalleryFloating,
-    setIsGalleryFloating,
-    galleryFloatingPos,
-    setGalleryFloatingPos,
-    galleryFloatingSize,
-    setGalleryFloatingSize,
-    isGalleryDocked,
-    setIsGalleryDocked,
-    galleryDockedSide,
-    isStatsFloating,
-    setIsStatsFloating,
-    statsFloatingPos,
-    setStatsFloatingPos,
-    statsFloatingSize,
-    setStatsFloatingSize,
-    isStatsDocked,
-    setIsStatsDocked,
-    statsDockedSide,
-    isCurationFloating,
-    setIsCurationFloating,
-    curationFloatingPos,
-    setCurationFloatingPos,
-    curationFloatingSize,
-    setCurationFloatingSize,
-    isCurationDocked,
-    setIsCurationDocked,
-    curationDockedSide,
-    handleHeaderDragStart,
-  ])
+  const windowManagerProps = useMemo(
+    () => ({
+      isCompositionFloating,
+      setIsCompositionFloating,
+      compositionFloatingPos,
+      setCompositionFloatingPos,
+      compositionFloatingSize,
+      setCompositionFloatingSize,
+      isJobManagerFloating,
+      setIsJobManagerFloating,
+      jobManagerFloatingPos,
+      setJobManagerFloatingPos,
+      jobManagerFloatingSize,
+      setJobManagerFloatingSize,
+      isGalleryFloating,
+      setIsGalleryFloating,
+      galleryFloatingPos,
+      setGalleryFloatingPos,
+      galleryFloatingSize,
+      setGalleryFloatingSize,
+      isGalleryDocked,
+      setIsGalleryDocked,
+      galleryDockedSide,
+      isStatsFloating,
+      setIsStatsFloating,
+      statsFloatingPos,
+      setStatsFloatingPos,
+      statsFloatingSize,
+      setStatsFloatingSize,
+      isStatsDocked,
+      setIsStatsDocked,
+      statsDockedSide,
+      isCurationFloating,
+      setIsCurationFloating,
+      curationFloatingPos,
+      setCurationFloatingPos,
+      curationFloatingSize,
+      setCurationFloatingSize,
+      isCurationDocked,
+      setIsCurationDocked,
+      curationDockedSide,
+      handleHeaderDragStart,
+    }),
+    [
+      isCompositionFloating,
+      setIsCompositionFloating,
+      compositionFloatingPos,
+      setCompositionFloatingPos,
+      compositionFloatingSize,
+      setCompositionFloatingSize,
+      isJobManagerFloating,
+      setIsJobManagerFloating,
+      jobManagerFloatingPos,
+      setJobManagerFloatingPos,
+      jobManagerFloatingSize,
+      setJobManagerFloatingSize,
+      isGalleryFloating,
+      setIsGalleryFloating,
+      galleryFloatingPos,
+      setGalleryFloatingPos,
+      galleryFloatingSize,
+      setGalleryFloatingSize,
+      isGalleryDocked,
+      setIsGalleryDocked,
+      galleryDockedSide,
+      isStatsFloating,
+      setIsStatsFloating,
+      statsFloatingPos,
+      setStatsFloatingPos,
+      statsFloatingSize,
+      setStatsFloatingSize,
+      isStatsDocked,
+      setIsStatsDocked,
+      statsDockedSide,
+      isCurationFloating,
+      setIsCurationFloating,
+      curationFloatingPos,
+      setCurationFloatingPos,
+      curationFloatingSize,
+      setCurationFloatingSize,
+      isCurationDocked,
+      setIsCurationDocked,
+      curationDockedSide,
+      handleHeaderDragStart,
+    ]
+  )
 
   // ── Render ──
   return (
     <div
       className={`flex flex-col bg-background ${
-        activeTab === "jobs" || activeTab === "generator" ? "h-[100dvh] overflow-hidden" : "min-h-[100dvh]"
+        activeTab === "jobs" ||
+        activeTab === "generator" ||
+        activeTab === "editor"
+          ? "h-[100dvh] overflow-hidden"
+          : "min-h-[100dvh]"
       }`}
     >
       <CurationToolbarProvider
         selectedAxis={curationSelectedAxis}
         setSelectedAxis={setCurationSelectedAxis}
+        activeGroupId={curationActiveGroupId}
+        setActiveGroupId={setCurationActiveGroupId}
+        activeFilters={curationActiveFilters}
+        setActiveFilters={setCurationActiveFilters}
+        savedGroups={curationSavedGroups}
+        setSavedGroups={setCurationSavedGroups}
         savedTemplates={template.savedTemplates}
       >
         <Header
@@ -577,9 +738,15 @@ function AppContent() {
           setCompositionTab={setCompositionTab}
           repeatCount={repeatCount}
           setRepeatCount={setRepeatCount}
-          handleRun={handleRun}
-          handleRandomRun={handleRandomRun}
-          handleRunUnapproved={handleRunUnapproved}
+          handleRun={() => {
+            void handleRun()
+          }}
+          handleRandomRun={() => {
+            void handleRandomRun()
+          }}
+          handleRunUnapproved={() => {
+            void handleRunUnapproved()
+          }}
           randomRunCount={randomRunCount}
           setRandomRunCount={setRandomRunCount}
           targetWorkerId={targetWorkerId}
@@ -589,176 +756,214 @@ function AppContent() {
           setIsSelectionOpen={setIsSelectionOpen}
           hasActiveFilter={hasActiveFilter}
           setIsAxisFilterOpen={setIsAxisFilterOpen}
-          setIsGraphOpen={setIsGraphOpen}
-          onStatsDragStart={(cx, cy) => handleNavTabDragStart("stats", cx, cy)}
-          onCurationDragStart={(cx, cy) =>
+          onStatsDragStart={(cx, cy) => {
+            handleNavTabDragStart("stats", cx, cy)
+          }}
+          onCurationDragStart={(cx, cy) => {
             handleNavTabDragStart("curation", cx, cy)
-          }
-          onGalleryDragStart={(cx, cy) =>
+          }}
+          onGalleryDragStart={(cx, cy) => {
             handleNavTabDragStart("gallery", cx, cy)
-          }
+          }}
           sessionMarkers={session.markers}
           sessionJobCounts={session.sessionJobCounts}
           sortedMarkers={session.sortedMarkers}
           selectedSessionId={session.selectedSessionId}
-          activeSessionState={
-            session.activeState ? { activeSessionId: session.activeState.activeSessionId } : null
-          }
+          activeSessionState={{
+            activeSessionId: session.activeState.activeSessionId,
+          }}
           sessionPickerOpen={session.sessionPickerOpen}
           onSessionPickerOpenChange={session.setSessionPickerOpen}
           onSelectSession={session.setSelectedSessionId}
           onCreateNewSession={session.createNewSession}
           paused={paused}
-          onTogglePause={jobActions.handleTogglePause}
-          onCancelAll={jobActions.handleCancelAll}
-          onRetryAllFailed={jobActions.handleRetryAllFailed}
-          onDeleteAllFailed={jobActions.handleDeleteAllFailed}
+          onTogglePause={() => {
+            void jobActions.handleTogglePause()
+          }}
+          onCancelAll={() => {
+            void jobActions.handleCancelAll()
+          }}
+          onRetryAllFailed={() => {
+            void jobActions.handleRetryAllFailed()
+          }}
+          onDeleteAllFailed={() => {
+            void jobActions.handleDeleteAllFailed()
+          }}
           activeJobsCount={session.sessionCounts.active}
         />
 
         <main
           className={`flex w-full flex-1 flex-col ${
-            activeTab === "jobs" || activeTab === "generator" ? "overflow-hidden" : ""
+            activeTab === "jobs" ||
+            activeTab === "generator" ||
+            activeTab === "editor"
+              ? "overflow-hidden"
+              : ""
           }`}
         >
           {/* ── Tab Routing ── */}
-          {activeTab === "stats" && <StatsTab jobs={jobs} workers={workers} />}
-          {activeTab === "gallery" && (
-            <GalleryTab
-              backendUrl={backendUrl}
-              enableHover={settings.enableHover}
-              imagePageSize={settings.imagePageSize}
-              imageLazyLoad={settings.imageLazyLoad}
-              singleDownloadMode={settings.singleDownloadMode}
-              fluidGridLayout={settings.fluidGridLayout}
-              tb={tb}
-            />
-          )}
-          {activeTab === "curation" && (
-            <CurationTab
-              backendUrl={backendUrl}
-              cegTemplate={template.cegTemplate}
-              savedTemplates={template.savedTemplates}
-              enableHover={settings.enableHover}
-              autoApplyReject={settings.autoApplyReject}
-              hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
-              savedWorkflows={workflow.savedWorkflows}
-              fluidGridLayout={settings.fluidGridLayout}
-              curationSelectedAxis={curationSelectedAxis}
-              setCurationSelectedAxis={setCurationSelectedAxis}
-            />
-          )}
-          {activeTab === "generator" && (
-            <GeneratorTab setActiveTab={setActiveTab} backendUrl={backendUrl} />
-          )}
-          {activeTab === "settings" && (
-            <SettingsTab
-              settings={settings}
-              updateSetting={updateSetting}
-              backendUrl={backendUrl}
-              onBackendUrlChange={setBackendUrl}
-              workers={workers}
-            />
-          )}
-          {activeTab === "jobs" && (
-            <JobsTab
-              backendUrl={backendUrl}
-              isAliveBackend={isAliveBackend}
-              jobs={jobs}
-              workers={workers}
-              paused={paused}
-              session={session}
-              runner={runnerProps}
-              windowManager={windowManagerProps}
-              jobActions={jobActions}
-              jobsLayoutOrientation={jobsLayoutOrientation}
-              setJobsLayoutOrientation={setJobsLayoutOrientation}
-              jobsPanelOrder={jobsPanelOrder}
-              compositionTab={compositionTab}
-              setCompositionTab={setCompositionTab}
-              mobileJobTab={mobileJobTab}
-              setMobileJobTab={setMobileJobTab}
-              useWindowMode={settings.useWindowMode}
-              enableHover={settings.enableHover}
-              imagePageSize={settings.imagePageSize}
-              imageLazyLoad={settings.imageLazyLoad}
-              singleDownloadMode={settings.singleDownloadMode}
-              autoApplyReject={settings.autoApplyReject}
-              hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
-              curationSelectedAxis={curationSelectedAxis}
-              setCurationSelectedAxis={setCurationSelectedAxis}
-              cegTemplate={template.cegTemplate}
-              savedTemplates={template.savedTemplates}
-              savedWorkflows={workflow.savedWorkflows}
-              tb={tb}
-              setIsSheetOpen={setIsSheetOpen}
-              setIsAxisFilterOpen={setIsAxisFilterOpen}
-              setIsSelectionOpen={setIsSelectionOpen}
-              setIsGraphOpen={setIsGraphOpen}
-              canRun={canRun}
-            />
-          )}
+          <Suspense fallback={<FeatureLoadingFallback />}>
+            {activeTab === "stats" && (
+              <StatsTab jobs={jobs} workers={workers} />
+            )}
+            {activeTab === "gallery" && (
+              <GalleryTab
+                backendUrl={backendUrl}
+                enableHover={settings.enableHover}
+                imagePageSize={settings.imagePageSize}
+                imageLazyLoad={settings.imageLazyLoad}
+                singleDownloadMode={settings.singleDownloadMode}
+                fluidGridLayout={settings.fluidGridLayout}
+                tb={tb}
+              />
+            )}
+            {activeTab === "curation" && (
+              <CurationTab
+                backendUrl={backendUrl}
+                cegTemplate={template.cegTemplate}
+                onSaveCegTemplate={handleSaveCurationCegTemplate}
+                savedTemplates={template.savedTemplates}
+                enableHover={settings.enableHover}
+                autoApplyReject={settings.autoApplyReject}
+                hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
+                savedWorkflows={workflow.savedWorkflows}
+                fluidGridLayout={settings.fluidGridLayout}
+                curationSelectedAxis={curationSelectedAxis}
+                setCurationSelectedAxis={setCurationSelectedAxis}
+                curationActiveGroupId={curationActiveGroupId}
+                setCurationActiveGroupId={setCurationActiveGroupId}
+                curationActiveFilters={curationActiveFilters}
+                setCurationActiveFilters={setCurationActiveFilters}
+                curationSavedGroups={curationSavedGroups}
+                setCurationSavedGroups={setCurationSavedGroups}
+              />
+            )}
+            {activeTab === "generator" && (
+              <GeneratorTab
+                setActiveTab={setActiveTab}
+                backendUrl={backendUrl}
+                handleRunSingle={handleRunSingle}
+              />
+            )}
+            {activeTab === "editor" && (
+              <EditorTab isAliveBackend={isAliveBackend} />
+            )}
+            {activeTab === "settings" && (
+              <SettingsTab
+                settings={settings}
+                updateSetting={updateSetting}
+                backendUrl={backendUrl}
+                onBackendUrlChange={setBackendUrl}
+                workers={workers}
+              />
+            )}
+            {activeTab === "jobs" && (
+              <JobsTab
+                backendUrl={backendUrl}
+                isAliveBackend={isAliveBackend}
+                jobs={jobs}
+                workers={workers}
+                paused={paused}
+                session={session}
+                runner={runnerProps}
+                windowManager={windowManagerProps}
+                jobActions={jobActions}
+                jobsLayoutOrientation={jobsLayoutOrientation}
+                setJobsLayoutOrientation={setJobsLayoutOrientation}
+                jobsPanelOrder={jobsPanelOrder}
+                compositionTab={compositionTab}
+                setCompositionTab={setCompositionTab}
+                mobileJobTab={mobileJobTab}
+                setMobileJobTab={setMobileJobTab}
+                useWindowMode={settings.useWindowMode}
+                enableHover={settings.enableHover}
+                imagePageSize={settings.imagePageSize}
+                imageLazyLoad={settings.imageLazyLoad}
+                singleDownloadMode={settings.singleDownloadMode}
+                autoApplyReject={settings.autoApplyReject}
+                hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
+                curationSelectedAxis={curationSelectedAxis}
+                setCurationSelectedAxis={setCurationSelectedAxis}
+                cegTemplate={template.cegTemplate}
+                savedTemplates={template.savedTemplates}
+                savedWorkflows={workflow.savedWorkflows}
+                tb={tb}
+                setIsSheetOpen={setIsSheetOpen}
+                setIsAxisFilterOpen={setIsAxisFilterOpen}
+                setIsSelectionOpen={setIsSelectionOpen}
+                canRun={canRun}
+              />
+            )}
+          </Suspense>
         </main>
 
         {/* ── Dialog Overlays ── */}
-        <ParserPreviewDialog
-          open={isSheetOpen}
-          onOpenChange={setIsSheetOpen}
-          renderResponse={renderResponse}
-          filteredByAxisSet={filteredByAxisSet}
-        />
+        <Suspense fallback={null}>
+          {isSheetOpen && (
+            <ParserPreviewDialog
+              open={isSheetOpen}
+              onOpenChange={setIsSheetOpen}
+              renderResponse={renderResponse}
+              filteredByAxisSet={filteredByAxisSet}
+              canRun={canRun}
+              onRunSingle={handleRunSingle}
+              backendUrl={backendUrl}
+            />
+          )}
 
-        <AxisFilterSheet
-          open={isAxisFilterOpen}
-          onOpenChange={setIsAxisFilterOpen}
-          axisValueFilter={axisValueFilter}
-          setAxisValueFilter={setAxisValueFilter}
-          collapsedAxes={collapsedAxes}
-          toggleAxisCollapse={toggleAxisCollapse}
-          estimatedRunCount={estimatedRunCount}
-          fakeJobQueue={fakeJobQueue}
-          axisFilteredItems={axisFilteredItems}
-          axisExcludedItems={axisExcludedItems}
-          uncheckedItems={uncheckedItems}
-          toggleItemCheck={toggleItemCheck}
-        />
+          {isAxisFilterOpen && (
+            <AxisFilterSheet
+              open={isAxisFilterOpen}
+              onOpenChange={setIsAxisFilterOpen}
+              axisValueFilter={axisValueFilter}
+              setAxisValueFilter={setAxisValueFilter}
+              collapsedAxes={collapsedAxes}
+              toggleAxisCollapse={toggleAxisCollapse}
+              estimatedRunCount={estimatedRunCount}
+              fakeJobQueue={fakeJobQueue}
+              axisFilteredItems={axisFilteredItems}
+              axisExcludedItems={axisExcludedItems}
+              uncheckedItems={uncheckedItems}
+              toggleItemCheck={toggleItemCheck}
+            />
+          )}
 
-        <SelectionSheet
-          open={isSelectionOpen}
-          onOpenChange={setIsSelectionOpen}
-          fakeJobQueue={fakeJobQueue}
-          filteredPreview={filteredPreview}
-          previewFilter={previewFilter}
-          onPreviewFilterChange={setPreviewFilter}
-          uncheckedItems={uncheckedItems}
-          selectedCount={selectedCount}
-          canRun={canRun}
-          checkAllItems={checkAllItems}
-          uncheckAllItems={uncheckAllItems}
-          toggleItemCheck={toggleItemCheck}
-          onRunSelected={async () => {
-            const ok = await handleRunSelected()
-            if (ok) setIsSelectionOpen(false)
-          }}
-          onExcludeApproved={selectOnlyUnapprovedItems}
-        />
+          {isSelectionOpen && (
+            <SelectionSheet
+              open={isSelectionOpen}
+              onOpenChange={setIsSelectionOpen}
+              fakeJobQueue={fakeJobQueue}
+              filteredPreview={filteredPreview}
+              previewFilter={previewFilter}
+              onPreviewFilterChange={setPreviewFilter}
+              uncheckedItems={uncheckedItems}
+              selectedCount={selectedCount}
+              canRun={canRun}
+              checkAllItems={checkAllItems}
+              uncheckAllItems={uncheckAllItems}
+              toggleItemCheck={toggleItemCheck}
+              onRunSelected={async () => {
+                const ok = await handleRunSelected()
+                if (ok) setIsSelectionOpen(false)
+              }}
+              onExcludeApproved={() => {
+                void selectOnlyUnapprovedItems()
+              }}
+            />
+          )}
 
-        {workflow.parsedWorkflow?.success && (
-          <WorkflowGraphViewer
-            workflow={workflow.parsedWorkflow.data}
-            isOpen={isGraphOpen}
-            onClose={() => setIsGraphOpen(false)}
-            backendUrl={backendUrl}
-          />
-        )}
-
-        <NameConflictDialog
-          pendingSave={pendingSave}
-          onClose={() => setPendingSave(null)}
-          newName={nextFreeName(pendingSave?.name ?? "", pendingSaveItems)}
-          onSaveNew={handleNameConflictSaveNew}
-          onOverwrite={handleNameConflictOverwrite}
-        />
+          {pendingSave !== null && (
+            <NameConflictDialog
+              pendingSave={pendingSave}
+              onClose={() => {
+                setPendingSave(null)
+              }}
+              newName={nextFreeName(pendingSave.name, pendingSaveItems)}
+              onSaveNew={handleNameConflictSaveNew}
+              onOverwrite={handleNameConflictOverwrite}
+            />
+          )}
+        </Suspense>
 
         {activeTab !== "jobs" && (
           <JobStatusPopup
@@ -766,53 +971,71 @@ function AppContent() {
             paused={paused}
             backendUrl={backendUrl}
             isAliveBackend={isAliveBackend}
-            onNavigateToJobs={() => setActiveTab("jobs")}
+            onNavigateToJobs={() => {
+              setActiveTab("jobs")
+            }}
             cycleMinimizedProgress={settings.cycleMinimizedProgress}
           />
         )}
 
-        <PresetSelectionDialog
-          pendingWorkflow={pendingPresetSelection}
-          onClose={() => setPendingPresetSelection(null)}
-          onSelectPreset={(mappings: NodeMapping[], presetId: string) => {
-            nodeMapping.setNodeMappings(mappings)
-            nodeMapping.setActiveNodeMappingPresetId(presetId)
-            setPendingPresetSelection(null)
-          }}
-          onStartWithoutMapping={() => {
-            nodeMapping.setNodeMappings([])
-            nodeMapping.setActiveNodeMappingPresetId(null)
-            setPendingPresetSelection(null)
-          }}
-        />
+        <Suspense fallback={null}>
+          {pendingPresetSelection !== null && (
+            <PresetSelectionDialog
+              pendingWorkflow={pendingPresetSelection}
+              onClose={() => {
+                setPendingPresetSelection(null)
+              }}
+              onSelectPreset={(mappings: NodeMapping[], presetId: string) => {
+                nodeMapping.setNodeMappings(mappings)
+                nodeMapping.setActiveNodeMappingPresetId(presetId)
+                setPendingPresetSelection(null)
+              }}
+              onStartWithoutMapping={() => {
+                nodeMapping.setNodeMappings([])
+                nodeMapping.setActiveNodeMappingPresetId(null)
+                setPendingPresetSelection(null)
+              }}
+            />
+          )}
 
-        <VersionDiffDialog
-          open={pendingDiff !== null}
-          onClose={() => setPendingDiff(null)}
-          onConfirm={() => {
-            if (!pendingDiff) return
-            if (pendingDiff.type === "template") {
-              template.saveTemplate(pendingDiff.name, pendingDiff.newContent)
-              template.setTemplateResetKey((k) => k + 1)
-            } else {
-              const w = workflow.saveWorkflow(
-                pendingDiff.name,
-                pendingDiff.newContent
-              )
-              workflow.setActiveWorkflowId(w.id)
-              workflow.setWorkflowResetKey((k) => k + 1)
-            }
-            toast.success(`'${pendingDiff.name}' 업데이트가 완료되었습니다.`)
-          }}
-          oldContent={pendingDiff?.oldContent ?? ""}
-          newContent={pendingDiff?.newContent ?? ""}
-          itemName={pendingDiff?.name ?? ""}
-        />
+          {pendingDiff !== null && (
+            <VersionDiffDialog
+              open={true}
+              onClose={() => {
+                setPendingDiff(null)
+              }}
+              onConfirm={() => {
+                if (pendingDiff.type === "template") {
+                  template.saveTemplate(
+                    pendingDiff.name,
+                    pendingDiff.newContent
+                  )
+                  template.setTemplateResetKey((k) => k + 1)
+                } else {
+                  const w = workflow.saveWorkflow(
+                    pendingDiff.name,
+                    pendingDiff.newContent
+                  )
+                  workflow.setActiveWorkflowId(w.id)
+                  workflow.setWorkflowResetKey((k) => k + 1)
+                }
+                toast.success(
+                  `'${pendingDiff.name}' 업데이트가 완료되었습니다.`
+                )
+              }}
+              oldContent={pendingDiff.oldContent}
+              newContent={pendingDiff.newContent}
+              itemName={pendingDiff.name}
+            />
+          )}
 
-        <KeyboardShortcutsDialog
-          open={shortcutsOpen}
-          onOpenChange={setShortcutsOpen}
-        />
+          {shortcutsOpen && (
+            <KeyboardShortcutsDialog
+              open={shortcutsOpen}
+              onOpenChange={setShortcutsOpen}
+            />
+          )}
+        </Suspense>
 
         {/* ── Floating Windows ── */}
 
@@ -821,42 +1044,61 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-composition"
             isOpen={isCompositionFloating}
-            onClose={() => setIsCompositionFloating(false)}
-            onDock={() => setIsCompositionFloating(false)}
+            onClose={() => {
+              setIsCompositionFloating(false)
+            }}
+            onDock={() => {
+              setIsCompositionFloating(false)
+            }}
             initialPos={compositionFloatingPos}
             initialSize={compositionFloatingSize}
             onPosChange={setCompositionFloatingPos}
             onSizeChange={setCompositionFloatingSize}
             title="작업 구성 패널"
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            onDragProgress={(cx, cy, sw, sh, isEnding) => {
               handleDragProgress(cx, cy, sw, sh, isEnding, "composition")
-            }
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
-              <WorkCompositionPanel
-                repeatCount={repeatCount}
-                setRepeatCount={setRepeatCount}
-                handleRun={handleRun}
-                handleRandomRun={handleRandomRun}
-                handleRunUnapproved={handleRunUnapproved}
-                randomRunCount={randomRunCount}
-                setRandomRunCount={setRandomRunCount}
-                estimatedRunCount={estimatedRunCount}
-                canRun={canRun}
-                previewCount={fakeJobQueue.length}
-                workers={workers}
-                targetWorkerId={targetWorkerId}
-                setTargetWorkerId={setTargetWorkerId}
-                compositionTab={compositionTab}
-                setCompositionTab={setCompositionTab}
-                onPreviewOpen={() => setIsSheetOpen(true)}
-                onAxisFilterOpen={() => setIsAxisFilterOpen(true)}
-                onSelectionOpen={() => setIsSelectionOpen(true)}
-                hasActiveFilter={hasActiveFilter}
-                onGraphOpen={() => setIsGraphOpen(true)}
-                isFloating={true}
-                onFloatToggle={() => setIsCompositionFloating(false)}
-              />
+              <Suspense fallback={<FeatureLoadingFallback />}>
+                <WorkCompositionPanel
+                  repeatCount={repeatCount}
+                  setRepeatCount={setRepeatCount}
+                  handleRun={() => {
+                    void handleRun()
+                  }}
+                  handleRandomRun={() => {
+                    void handleRandomRun()
+                  }}
+                  handleRunUnapproved={() => {
+                    void handleRunUnapproved()
+                  }}
+                  randomRunCount={randomRunCount}
+                  setRandomRunCount={setRandomRunCount}
+                  estimatedRunCount={estimatedRunCount}
+                  canRun={canRun}
+                  previewCount={fakeJobQueue.length}
+                  workers={workers}
+                  targetWorkerId={targetWorkerId}
+                  setTargetWorkerId={setTargetWorkerId}
+                  compositionTab={compositionTab}
+                  setCompositionTab={setCompositionTab}
+                  onPreviewOpen={() => {
+                    setIsSheetOpen(true)
+                  }}
+                  onAxisFilterOpen={() => {
+                    setIsAxisFilterOpen(true)
+                  }}
+                  onSelectionOpen={() => {
+                    setIsSelectionOpen(true)
+                  }}
+                  hasActiveFilter={hasActiveFilter}
+                  isFloating={true}
+                  onFloatToggle={() => {
+                    setIsCompositionFloating(false)
+                  }}
+                />
+              </Suspense>
             </div>
           </FloatingWindow>
         )}
@@ -866,46 +1108,62 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-jobManager"
             isOpen={isJobManagerFloating}
-            onClose={() => setIsJobManagerFloating(false)}
-            onDock={() => setIsJobManagerFloating(false)}
+            onClose={() => {
+              setIsJobManagerFloating(false)
+            }}
+            onDock={() => {
+              setIsJobManagerFloating(false)
+            }}
             initialPos={jobManagerFloatingPos}
             initialSize={jobManagerFloatingSize}
             onPosChange={setJobManagerFloatingPos}
             onSizeChange={setJobManagerFloatingSize}
             title="작업 큐 매니저"
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            onDragProgress={(cx, cy, sw, sh, isEnding) => {
               handleDragProgress(cx, cy, sw, sh, isEnding, "jobManager")
-            }
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <JobManagerPanel
-                  jobs={jobs}
-                  workers={workers}
-                  paused={paused}
-                  backendUrl={backendUrl}
-                  isAliveBackend={isAliveBackend}
-                  selectedId={session.selectedSessionId}
-                  setSelectedId={session.setSelectedSessionId}
-                  markers={session.markers}
-                  setMarkersRaw={session.setMarkersRaw}
-                  activeState={session.activeState}
-                  setActiveStateRaw={session.setActiveStateRaw}
-                  sessionPickerOpen={session.sessionPickerOpen}
-                  setSessionPickerOpen={session.setSessionPickerOpen}
-                  createNewSession={session.createNewSession}
-                  sessionJobCounts={session.sessionJobCounts}
-                  sortedMarkers={session.sortedMarkers}
-                  counts={session.sessionCounts}
-                  sessionJobs={session.sessionJobs}
-                  handleTogglePause={jobActions.handleTogglePause}
-                  handleCancelAll={jobActions.handleCancelAll}
-                  handleRetryAllFailed={jobActions.handleRetryAllFailed}
-                  handleDeleteAllFailed={jobActions.handleDeleteAllFailed}
-                  refetchStats={session.refetchStats}
-                  isFloating={true}
-                  onFloatToggle={() => setIsJobManagerFloating(false)}
-                />
+                <Suspense fallback={<FeatureLoadingFallback />}>
+                  <JobManagerPanel
+                    jobs={jobs}
+                    workers={workers}
+                    paused={paused}
+                    backendUrl={backendUrl}
+                    isAliveBackend={isAliveBackend}
+                    selectedId={session.selectedSessionId}
+                    setSelectedId={session.setSelectedSessionId}
+                    markers={session.markers}
+                    setMarkersRaw={session.setMarkersRaw}
+                    activeState={session.activeState}
+                    setActiveStateRaw={session.setActiveStateRaw}
+                    sessionPickerOpen={session.sessionPickerOpen}
+                    setSessionPickerOpen={session.setSessionPickerOpen}
+                    createNewSession={session.createNewSession}
+                    sessionJobCounts={session.sessionJobCounts}
+                    sortedMarkers={session.sortedMarkers}
+                    counts={session.sessionCounts}
+                    sessionJobs={session.sessionJobs}
+                    handleTogglePause={() => {
+                      void jobActions.handleTogglePause()
+                    }}
+                    handleCancelAll={() => {
+                      void jobActions.handleCancelAll()
+                    }}
+                    handleRetryAllFailed={() => {
+                      void jobActions.handleRetryAllFailed()
+                    }}
+                    handleDeleteAllFailed={() => {
+                      void jobActions.handleDeleteAllFailed()
+                    }}
+                    refetchStats={session.refetchStats}
+                    isFloating={true}
+                    onFloatToggle={() => {
+                      setIsJobManagerFloating(false)
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
           </FloatingWindow>
@@ -913,27 +1171,31 @@ function AppContent() {
 
         {/* Gallery floating window (extracted toolbar) */}
         {activeTab !== "gallery" && !isGalleryDocked && isGalleryFloating && (
-          <GalleryFloatingWindow
-            isOpen={true}
-            onClose={() => setIsGalleryFloating(false)}
-            onDock={() => {
-              setIsGalleryFloating(false)
-              setActiveTab("gallery")
-            }}
-            initialPos={galleryFloatingPos}
-            initialSize={galleryFloatingSize}
-            onPosChange={setGalleryFloatingPos}
-            onSizeChange={setGalleryFloatingSize}
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
-              handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")
-            }
-            backendUrl={backendUrl}
-            enableHover={settings.enableHover}
-            imagePageSize={settings.imagePageSize}
-            imageLazyLoad={settings.imageLazyLoad}
-            singleDownloadMode={settings.singleDownloadMode}
-            tb={tb}
-          />
+          <Suspense fallback={null}>
+            <GalleryFloatingWindow
+              isOpen={true}
+              onClose={() => {
+                setIsGalleryFloating(false)
+              }}
+              onDock={() => {
+                setIsGalleryFloating(false)
+                setActiveTab("gallery")
+              }}
+              initialPos={galleryFloatingPos}
+              initialSize={galleryFloatingSize}
+              onPosChange={setGalleryFloatingPos}
+              onSizeChange={setGalleryFloatingSize}
+              onDragProgress={(cx, cy, sw, sh, isEnding) => {
+                handleDragProgress(cx, cy, sw, sh, isEnding, "gallery")
+              }}
+              backendUrl={backendUrl}
+              enableHover={settings.enableHover}
+              imagePageSize={settings.imagePageSize}
+              imageLazyLoad={settings.imageLazyLoad}
+              singleDownloadMode={settings.singleDownloadMode}
+              tb={tb}
+            />
+          </Suspense>
         )}
 
         {/* Stats floating window */}
@@ -941,7 +1203,9 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-stats"
             isOpen={isStatsFloating}
-            onClose={() => setIsStatsFloating(false)}
+            onClose={() => {
+              setIsStatsFloating(false)
+            }}
             onDock={() => {
               setIsStatsFloating(false)
               setActiveTab("stats")
@@ -951,12 +1215,14 @@ function AppContent() {
             onPosChange={setStatsFloatingPos}
             onSizeChange={setStatsFloatingSize}
             title="통계"
-            onDragProgress={(cx, cy, _sw, sh, isEnding) =>
+            onDragProgress={(cx, cy, _sw, sh, isEnding) => {
               handleDragProgress(cx, cy, _sw, sh, isEnding, "stats")
-            }
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-y-auto bg-panel p-4 md:p-6">
-              <StatisticsPanel jobs={jobs} workers={workers} />
+              <Suspense fallback={<FeatureLoadingFallback />}>
+                <StatisticsPanel jobs={jobs} workers={workers} />
+              </Suspense>
             </div>
           </FloatingWindow>
         )}
@@ -966,7 +1232,9 @@ function AppContent() {
           <FloatingWindow
             id="floating-window-curation"
             isOpen={isCurationFloating}
-            onClose={() => setIsCurationFloating(false)}
+            onClose={() => {
+              setIsCurationFloating(false)
+            }}
             onDock={() => {
               setIsCurationFloating(false)
               setActiveTab("curation")
@@ -976,27 +1244,31 @@ function AppContent() {
             onPosChange={setCurationFloatingPos}
             onSizeChange={setCurationFloatingSize}
             title="큐레이션"
-            onDragProgress={(cx, cy, sw, sh, isEnding) =>
+            onDragProgress={(cx, cy, sw, sh, isEnding) => {
               handleDragProgress(cx, cy, sw, sh, isEnding, "curation")
-            }
+            }}
           >
             <div className="flex h-full w-full flex-col overflow-hidden bg-panel">
-              <CombinationPicker
-                backendUrl={backendUrl}
-                cegTemplate={template.cegTemplate}
-                savedTemplates={template.savedTemplates}
-                enableHover={settings.enableHover}
-                autoApplyReject={settings.autoApplyReject}
-                hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
-                savedWorkflows={workflow.savedWorkflows}
-                toolbarState={{
-                  selectedAxis: curationSelectedAxis,
-                  setSelectedAxis: setCurationSelectedAxis,
-                  viewMode: "gallery" as const,
-                  setViewMode: () => {},
-                  hideTopSection: true,
-                }}
-              />
+              <Suspense fallback={<FeatureLoadingFallback />}>
+                <CombinationPicker
+                  backendUrl={backendUrl}
+                  cegTemplate={template.cegTemplate}
+                  savedTemplates={template.savedTemplates}
+                  enableHover={settings.enableHover}
+                  autoApplyReject={settings.autoApplyReject}
+                  hideEmptyCurationFolders={settings.hideEmptyCurationFolders}
+                  savedWorkflows={workflow.savedWorkflows}
+                  toolbarState={{
+                    selectedAxis: curationSelectedAxis,
+                    setSelectedAxis: setCurationSelectedAxis,
+                    viewMode: "gallery" as const,
+                    setViewMode: () => {
+                      /* no-op for curation floating window */
+                    },
+                    hideTopSection: true,
+                  }}
+                />
+              </Suspense>
             </div>
           </FloatingWindow>
         )}

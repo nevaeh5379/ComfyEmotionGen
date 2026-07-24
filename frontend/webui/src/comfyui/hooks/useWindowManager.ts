@@ -47,7 +47,69 @@ export function useWindowManager({
   setActiveTab,
   setJobsLayoutOrientation,
   setJobsPanelOrder,
-}: UseWindowManagerOptions) {
+}: UseWindowManagerOptions): {
+  isCompositionFloating: boolean
+  setIsCompositionFloating: (v: boolean) => void
+  compositionFloatingPos: { x: number; y: number }
+  setCompositionFloatingPos: (v: { x: number; y: number }) => void
+  compositionFloatingSize: { w: number; h: number }
+  setCompositionFloatingSize: (v: { w: number; h: number }) => void
+  isJobManagerFloating: boolean
+  setIsJobManagerFloating: (v: boolean) => void
+  jobManagerFloatingPos: { x: number; y: number }
+  setJobManagerFloatingPos: (v: { x: number; y: number }) => void
+  jobManagerFloatingSize: { w: number; h: number }
+  setJobManagerFloatingSize: (v: { w: number; h: number }) => void
+  isGalleryFloating: boolean
+  setIsGalleryFloating: (v: boolean) => void
+  galleryFloatingPos: { x: number; y: number }
+  setGalleryFloatingPos: (v: { x: number; y: number }) => void
+  galleryFloatingSize: { w: number; h: number }
+  setGalleryFloatingSize: (v: { w: number; h: number }) => void
+  isGalleryDocked: boolean
+  setIsGalleryDocked: (v: boolean) => void
+  galleryDockedSide: "start" | "end"
+  setGalleryDockedSide: (v: "start" | "end") => void
+  isStatsFloating: boolean
+  setIsStatsFloating: (v: boolean) => void
+  statsFloatingPos: { x: number; y: number }
+  setStatsFloatingPos: (v: { x: number; y: number }) => void
+  statsFloatingSize: { w: number; h: number }
+  setStatsFloatingSize: (v: { w: number; h: number }) => void
+  isStatsDocked: boolean
+  setIsStatsDocked: (v: boolean) => void
+  statsDockedSide: "start" | "end"
+  setStatsDockedSide: (v: "start" | "end") => void
+  isCurationFloating: boolean
+  setIsCurationFloating: (v: boolean) => void
+  curationFloatingPos: { x: number; y: number }
+  setCurationFloatingPos: (v: { x: number; y: number }) => void
+  curationFloatingSize: { w: number; h: number }
+  setCurationFloatingSize: (v: { w: number; h: number }) => void
+  isCurationDocked: boolean
+  setIsCurationDocked: (v: boolean) => void
+  curationDockedSide: "start" | "end"
+  setCurationDockedSide: (v: "start" | "end") => void
+  snapDockZone: SnapDockZone | null
+  setSnapDockZone: React.Dispatch<React.SetStateAction<SnapDockZone | null>>
+  handleDragProgress: (
+    clientX: number,
+    clientY: number,
+    screenW: number,
+    screenH: number,
+    isEnding: boolean,
+    windowType: WindowType
+  ) => void
+  handleHeaderDragStart: (
+    e: React.MouseEvent,
+    windowType: "composition" | "jobManager"
+  ) => void
+  handleNavTabDragStart: (
+    tabId: "stats" | "curation" | "gallery",
+    clientX: number,
+    clientY: number
+  ) => void
+} {
   const panel = usePanelLayout()
 
   // Destructure for stable refs in callbacks
@@ -121,7 +183,7 @@ export function useWindowManager({
       screenH: number,
       isEnding: boolean,
       windowType: WindowType
-    ) => {
+    ): void => {
       const SNAP_THRESHOLD = 50
       const distLeft = clientX
       const distRight = screenW - clientX
@@ -193,7 +255,7 @@ export function useWindowManager({
             )
             setActiveTab("jobs")
             toast.success("통계 패널이 메인 패널에 결합되었습니다.")
-          } else if (windowType === "curation") {
+          } else {
             setIsCurationFloating(false)
             setIsCurationDocked(true)
             setCurationDockedSide(
@@ -236,7 +298,7 @@ export function useWindowManager({
 
   // ── handleHeaderDragStart ──
   const handleHeaderDragStart = useCallback(
-    (e: React.MouseEvent, windowType: "composition" | "jobManager") => {
+    (e: React.MouseEvent, windowType: "composition" | "jobManager"): void => {
       e.preventDefault()
 
       const size =
@@ -252,7 +314,7 @@ export function useWindowManager({
         size,
       }
 
-      const handleGlobalMouseMove = (moveEvent: MouseEvent) => {
+      const handleGlobalMouseMove = (moveEvent: MouseEvent): void => {
         const session = dragSessionRef.current
         if (!session) return
 
@@ -300,8 +362,8 @@ export function useWindowManager({
           nextTop = Math.max(0, Math.min(nextTop, window.innerHeight - 40))
 
           if (el) {
-            el.style.left = `${nextLeft}px`
-            el.style.top = `${nextTop}px`
+            el.style.left = `${String(nextLeft)}px`
+            el.style.top = `${String(nextTop)}px`
           }
 
           handleDragProgress(
@@ -315,7 +377,7 @@ export function useWindowManager({
         }
       }
 
-      const handleGlobalMouseUp = (upEvent: MouseEvent) => {
+      const handleGlobalMouseUp = (_upEvent: MouseEvent): void => {
         document.removeEventListener("mousemove", handleGlobalMouseMove)
         document.removeEventListener("mouseup", handleGlobalMouseUp)
 
@@ -324,15 +386,15 @@ export function useWindowManager({
 
         if (session.isPopoutTriggered) {
           handleDragProgress(
-            upEvent.clientX,
-            upEvent.clientY,
+            _upEvent.clientX,
+            _upEvent.clientY,
             window.innerWidth,
             window.innerHeight,
             true,
             session.windowType
           )
 
-          setTimeout(() => {
+          void setTimeout(() => {
             const domId =
               session.windowType === "composition"
                 ? "floating-window-composition"
@@ -370,7 +432,11 @@ export function useWindowManager({
 
   // ── handleNavTabDragStart ──
   const handleNavTabDragStart = useCallback(
-    (tabId: "stats" | "curation" | "gallery", clientX: number, clientY: number) => {
+    (
+      tabId: "stats" | "curation" | "gallery",
+      clientX: number,
+      clientY: number
+    ): void => {
       const size =
         tabId === "stats"
           ? statsFloatingSize
@@ -386,7 +452,7 @@ export function useWindowManager({
         size,
       }
 
-      const handleGlobalMouseMove = (moveEvent: MouseEvent) => {
+      const handleGlobalMouseMove = (moveEvent: MouseEvent): void => {
         const session = dragSessionRef.current
         if (!session) return
 
@@ -438,8 +504,8 @@ export function useWindowManager({
           nextTop = Math.max(0, Math.min(nextTop, window.innerHeight - 40))
 
           if (el) {
-            el.style.left = `${nextLeft}px`
-            el.style.top = `${nextTop}px`
+            el.style.left = `${String(nextLeft)}px`
+            el.style.top = `${String(nextTop)}px`
           }
 
           handleDragProgress(
@@ -448,12 +514,12 @@ export function useWindowManager({
             window.innerWidth,
             window.innerHeight,
             false,
-            session.windowType as "stats" | "curation" | "gallery"
+            session.windowType
           )
         }
       }
 
-      const handleGlobalMouseUp = (upEvent: MouseEvent) => {
+      const handleGlobalMouseUp = (_upEvent: MouseEvent): void => {
         document.removeEventListener("mousemove", handleGlobalMouseMove)
         document.removeEventListener("mouseup", handleGlobalMouseUp)
 
@@ -462,15 +528,15 @@ export function useWindowManager({
 
         if (session.isPopoutTriggered) {
           handleDragProgress(
-            upEvent.clientX,
-            upEvent.clientY,
+            _upEvent.clientX,
+            _upEvent.clientY,
             window.innerWidth,
             window.innerHeight,
             true,
-            session.windowType as "stats" | "curation" | "gallery"
+            session.windowType
           )
 
-          setTimeout(() => {
+          void setTimeout(() => {
             const domId = `floating-window-${session.windowType}`
             const el = document.getElementById(domId)
             if (el) {
@@ -510,107 +576,110 @@ export function useWindowManager({
     ]
   )
 
-  return useMemo(() => ({
-    // Exposed panel state for rendering
-    isCompositionFloating,
-    setIsCompositionFloating,
-    compositionFloatingPos,
-    setCompositionFloatingPos,
-    compositionFloatingSize,
-    setCompositionFloatingSize,
+  return useMemo(
+    () => ({
+      // Exposed panel state for rendering
+      isCompositionFloating,
+      setIsCompositionFloating,
+      compositionFloatingPos,
+      setCompositionFloatingPos,
+      compositionFloatingSize,
+      setCompositionFloatingSize,
 
-    isJobManagerFloating,
-    setIsJobManagerFloating,
-    jobManagerFloatingPos,
-    setJobManagerFloatingPos,
-    jobManagerFloatingSize,
-    setJobManagerFloatingSize,
+      isJobManagerFloating,
+      setIsJobManagerFloating,
+      jobManagerFloatingPos,
+      setJobManagerFloatingPos,
+      jobManagerFloatingSize,
+      setJobManagerFloatingSize,
 
-    isGalleryFloating,
-    setIsGalleryFloating,
-    galleryFloatingPos,
-    setGalleryFloatingPos,
-    galleryFloatingSize,
-    setGalleryFloatingSize,
-    isGalleryDocked,
-    setIsGalleryDocked,
-    galleryDockedSide,
-    setGalleryDockedSide,
+      isGalleryFloating,
+      setIsGalleryFloating,
+      galleryFloatingPos,
+      setGalleryFloatingPos,
+      galleryFloatingSize,
+      setGalleryFloatingSize,
+      isGalleryDocked,
+      setIsGalleryDocked,
+      galleryDockedSide,
+      setGalleryDockedSide,
 
-    isStatsFloating,
-    setIsStatsFloating,
-    statsFloatingPos,
-    setStatsFloatingPos,
-    statsFloatingSize,
-    setStatsFloatingSize,
-    isStatsDocked,
-    setIsStatsDocked,
-    statsDockedSide,
-    setStatsDockedSide,
+      isStatsFloating,
+      setIsStatsFloating,
+      statsFloatingPos,
+      setStatsFloatingPos,
+      statsFloatingSize,
+      setStatsFloatingSize,
+      isStatsDocked,
+      setIsStatsDocked,
+      statsDockedSide,
+      setStatsDockedSide,
 
-    isCurationFloating,
-    setIsCurationFloating,
-    curationFloatingPos,
-    setCurationFloatingPos,
-    curationFloatingSize,
-    setCurationFloatingSize,
-    isCurationDocked,
-    setIsCurationDocked,
-    curationDockedSide,
-    setCurationDockedSide,
+      isCurationFloating,
+      setIsCurationFloating,
+      curationFloatingPos,
+      setCurationFloatingPos,
+      curationFloatingSize,
+      setCurationFloatingSize,
+      isCurationDocked,
+      setIsCurationDocked,
+      curationDockedSide,
+      setCurationDockedSide,
 
-    // Drag / snap handlers and state
-    snapDockZone,
-    setSnapDockZone,
-    handleDragProgress,
-    handleHeaderDragStart,
-    handleNavTabDragStart,
-  }), [
-    isCompositionFloating,
-    setIsCompositionFloating,
-    compositionFloatingPos,
-    setCompositionFloatingPos,
-    compositionFloatingSize,
-    setCompositionFloatingSize,
-    isJobManagerFloating,
-    setIsJobManagerFloating,
-    jobManagerFloatingPos,
-    setJobManagerFloatingPos,
-    jobManagerFloatingSize,
-    setJobManagerFloatingSize,
-    isGalleryFloating,
-    setIsGalleryFloating,
-    galleryFloatingPos,
-    setGalleryFloatingPos,
-    galleryFloatingSize,
-    setGalleryFloatingSize,
-    isGalleryDocked,
-    setIsGalleryDocked,
-    galleryDockedSide,
-    setGalleryDockedSide,
-    isStatsFloating,
-    setIsStatsFloating,
-    statsFloatingPos,
-    setStatsFloatingPos,
-    statsFloatingSize,
-    setStatsFloatingSize,
-    isStatsDocked,
-    setIsStatsDocked,
-    statsDockedSide,
-    setStatsDockedSide,
-    isCurationFloating,
-    setIsCurationFloating,
-    curationFloatingPos,
-    setCurationFloatingPos,
-    curationFloatingSize,
-    setCurationFloatingSize,
-    isCurationDocked,
-    setIsCurationDocked,
-    curationDockedSide,
-    setCurationDockedSide,
-    snapDockZone,
-    handleDragProgress,
-    handleHeaderDragStart,
-    handleNavTabDragStart,
-  ])
+      // Drag / snap handlers and state
+      snapDockZone,
+      setSnapDockZone,
+      handleDragProgress,
+      handleHeaderDragStart,
+      handleNavTabDragStart,
+    }),
+    [
+      isCompositionFloating,
+      setIsCompositionFloating,
+      compositionFloatingPos,
+      setCompositionFloatingPos,
+      compositionFloatingSize,
+      setCompositionFloatingSize,
+      isJobManagerFloating,
+      setIsJobManagerFloating,
+      jobManagerFloatingPos,
+      setJobManagerFloatingPos,
+      jobManagerFloatingSize,
+      setJobManagerFloatingSize,
+      isGalleryFloating,
+      setIsGalleryFloating,
+      galleryFloatingPos,
+      setGalleryFloatingPos,
+      galleryFloatingSize,
+      setGalleryFloatingSize,
+      isGalleryDocked,
+      setIsGalleryDocked,
+      galleryDockedSide,
+      setGalleryDockedSide,
+      isStatsFloating,
+      setIsStatsFloating,
+      statsFloatingPos,
+      setStatsFloatingPos,
+      statsFloatingSize,
+      setStatsFloatingSize,
+      isStatsDocked,
+      setIsStatsDocked,
+      statsDockedSide,
+      setStatsDockedSide,
+      isCurationFloating,
+      setIsCurationFloating,
+      curationFloatingPos,
+      setCurationFloatingPos,
+      curationFloatingSize,
+      setCurationFloatingSize,
+      isCurationDocked,
+      setIsCurationDocked,
+      curationDockedSide,
+      setCurationDockedSide,
+      snapDockZone,
+      handleDragProgress,
+      handleHeaderDragStart,
+      handleNavTabDragStart,
+    ]
+  )
 }
