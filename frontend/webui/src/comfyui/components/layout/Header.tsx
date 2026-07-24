@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react"
 import {
   ArrowDown,
   ArrowUp,
-  Menu,
   XIcon,
   FilterIcon,
   MoreVertical,
@@ -14,25 +13,13 @@ import {
   Monitor,
   LayoutGrid,
   ExternalLink,
-  Save,
-  ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/components/theme-context"
 import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -49,16 +36,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { useTemplateContext } from "../../contexts/useTemplateContext"
 import { Tabs } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -74,9 +51,11 @@ import { TagInputSearch } from "../TagInputSearch"
 import { useCurationToolbar } from "../combinationpicker/useCurationToolbar"
 import { usePanelLayout } from "../../contexts/PanelLayoutContext"
 import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
-import { NAV_TABS, type TabId } from "./nav-tabs"
+import type { TabId } from "./nav-tabs"
 import { CurationGroupSelect } from "./CurationGroupSelect"
 import { JobSessionControls } from "./JobSessionControls"
+import { DesktopNavigation, MobileNavigation } from "./HeaderNavigation"
+import { GeneratorHeaderControls } from "./GeneratorHeaderControls"
 
 interface HeaderProps {
   useWindowMode?: boolean
@@ -136,16 +115,6 @@ export function Header(props: HeaderProps): JSX.Element {
   const panel = usePanelLayout()
   const tb = useGalleryToolbar()
   const curToolbar = useCurationToolbar()
-  const { generatorToolbarProps } = useTemplateContext()
-  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
-
-  const tabDragRef = useRef<{
-    tabId: "stats" | "curation" | "gallery"
-    startX: number
-    startY: number
-    wasDragged: boolean
-  } | null>(null)
-
   const [, setIsCompact] = useState(false)
   const [isGalleryToolbarCompact, setIsGalleryToolbarCompact] = useState(false)
   const [isGalleryToolbarUltraCompact, setIsGalleryToolbarUltraCompact] =
@@ -315,111 +284,17 @@ export function Header(props: HeaderProps): JSX.Element {
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-2.5">
         <div className="flex flex-1 items-center overflow-hidden md:gap-4">
-          {/* Mobile hamburger (left side) */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              showCloseButton={false}
-              className="w-[300px] sm:w-[320px]"
-            >
-              <SheetTitle className="sr-only">메뉴</SheetTitle>
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-line px-5 py-4">
-                <span className="bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[15px] font-black tracking-tighter text-transparent">
-                  ComfyEmotionGen WebUI
-                </span>
-                <SheetClose asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <XIcon className="h-4 w-4" />
-                  </Button>
-                </SheetClose>
-              </div>
-
-              {/* Navigation */}
-              <div className="flex flex-col gap-1 px-3 py-3">
-                {NAV_TABS.map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = props.activeTab === tab.id
-                  return (
-                    <div key={tab.id}>
-                      <SheetClose asChild>
-                        <button
-                          className={`group flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] font-bold transition-all ${
-                            isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                          }`}
-                          onClick={() => {
-                            props.setActiveTab(tab.id)
-                            if (tab.id === "jobs")
-                              props.setMobileJobTab("editor")
-                          }}
-                        >
-                          <Icon
-                            className={`h-[17px] w-[17px] ${isActive ? "opacity-100" : "opacity-50"}`}
-                          />
-                          <span>{tab.label}</span>
-                          {isActive && (
-                            <div className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-foreground" />
-                          )}
-                        </button>
-                      </SheetClose>
-                      {tab.id === "jobs" && (
-                        <div className="mt-0.5 ml-4 border-l border-line pl-3">
-                          {[
-                            { id: "editor" as const, label: "에디터" },
-                            { id: "status" as const, label: "현황" },
-                            {
-                              id: "list" as const,
-                              label: `기록 (${String(props.jobsCount)})`,
-                            },
-                          ].map((sub) => (
-                            <SheetClose asChild key={sub.id}>
-                              <button
-                                className={`flex h-9 w-full items-center rounded-md px-3 text-left text-[12px] font-semibold transition-all ${
-                                  props.mobileJobTab === sub.id
-                                    ? "bg-accent/80 text-accent-foreground"
-                                    : "text-muted-foreground/70 hover:text-foreground"
-                                }`}
-                                onClick={() => {
-                                  props.setActiveTab("jobs")
-                                  props.setMobileJobTab(sub.id)
-                                }}
-                              >
-                                {sub.label}
-                              </button>
-                            </SheetClose>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Footer */}
-              <div className="mt-auto border-t border-line px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <ServerStatus
-                    name="백엔드"
-                    isConnected={props.isAliveBackend && props.backendAlive}
-                    okHint="백엔드와 연결되어 있습니다."
-                    failHint="백엔드 서버 상태를 확인해주세요."
-                  />
-                  <WorkerStatus
-                    workers={props.workers}
-                    backendAlive={props.isAliveBackend}
-                    jobs={props.jobs ?? []}
-                  />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <MobileNavigation
+            activeTab={props.activeTab}
+            setActiveTab={props.setActiveTab}
+            mobileJobTab={props.mobileJobTab}
+            setMobileJobTab={props.setMobileJobTab}
+            jobsCount={props.jobsCount}
+            isAliveBackend={props.isAliveBackend}
+            backendAlive={props.backendAlive}
+            workers={props.workers}
+            jobs={props.jobs ?? []}
+          />
           <span
             ref={logoRef}
             className="shrink-0 bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-[14px] font-black tracking-tighter text-transparent md:text-[15px]"
@@ -427,123 +302,15 @@ export function Header(props: HeaderProps): JSX.Element {
             <span className="hidden md:inline">ComfyEmotionGen</span>
           </span>
           <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-          {/* Desktop tabs */}
-          <div
-            ref={tabsRef}
-            className="no-scrollbar hidden max-w-[280px] min-w-0 items-center gap-1 overflow-x-auto scroll-smooth px-1 pb-1 md:flex lg:max-w-[480px] xl:max-w-[640px]"
-            role="tablist"
-            aria-label="메인 탭 네비게이션"
-          >
-            {NAV_TABS.map((tab) => {
-              const Icon = tab.icon
-              const isDraggableTab =
-                props.useWindowMode === true &&
-                (tab.id === "stats" ||
-                  tab.id === "curation" ||
-                  tab.id === "gallery")
-              const dragCb =
-                tab.id === "stats"
-                  ? props.onStatsDragStart
-                  : tab.id === "curation"
-                    ? props.onCurationDragStart
-                    : tab.id === "gallery"
-                      ? props.onGalleryDragStart
-                      : undefined
-              const isDetached =
-                (tab.id === "stats" &&
-                  (panel.stats.isFloating || panel.stats.isDocked)) ||
-                (tab.id === "curation" &&
-                  (panel.curation.isFloating || panel.curation.isDocked)) ||
-                (tab.id === "gallery" &&
-                  (panel.gallery.isFloating || panel.gallery.isDocked))
-              return (
-                <Button
-                  key={tab.id}
-                  id={
-                    tab.id === "settings" ? "comfy-settings-button" : undefined
-                  }
-                  variant="ghost"
-                  size="sm"
-                  role="tab"
-                  aria-selected={props.activeTab === tab.id}
-                  aria-label={tab.label}
-                  onClick={() => {
-                    if (tabDragRef.current?.wasDragged === true) {
-                      tabDragRef.current = null
-                      return
-                    }
-                    props.setActiveTab(tab.id)
-                  }}
-                  onMouseDown={
-                    isDraggableTab && dragCb !== undefined
-                      ? (e: React.MouseEvent<HTMLButtonElement>): void => {
-                          tabDragRef.current = {
-                            tabId: tab.id,
-                            startX: e.clientX,
-                            startY: e.clientY,
-                            wasDragged: false,
-                          }
-
-                          const handleMove = (me: MouseEvent): void => {
-                            if (tabDragRef.current === null) return
-                            const dx = me.clientX - tabDragRef.current.startX
-                            const dy = me.clientY - tabDragRef.current.startY
-                            if (
-                              Math.sqrt(dx * dx + dy * dy) > 8 &&
-                              !tabDragRef.current.wasDragged
-                            ) {
-                              tabDragRef.current.wasDragged = true
-                              dragCb(
-                                tabDragRef.current.startX,
-                                tabDragRef.current.startY
-                              )
-                              document.removeEventListener(
-                                "mousemove",
-                                handleMove
-                              )
-                              document.removeEventListener("mouseup", handleUp)
-                            }
-                          }
-                          const handleUp = (): void => {
-                            document.removeEventListener(
-                              "mousemove",
-                              handleMove
-                            )
-                            document.removeEventListener("mouseup", handleUp)
-                            if (tabDragRef.current?.wasDragged !== true) {
-                              tabDragRef.current = null
-                            }
-                          }
-                          document.addEventListener("mousemove", handleMove)
-                          document.addEventListener("mouseup", handleUp)
-                        }
-                      : undefined
-                  }
-                  className={`relative h-10 shrink-0 gap-1.5 rounded-full px-4 text-[13px] font-black transition-all ${
-                    props.activeTab === tab.id
-                      ? "bg-foreground text-background shadow-lg"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  } ${isDraggableTab ? "cursor-grab select-none active:cursor-grabbing" : ""} ${
-                    tab.id === "settings" ? "comfy-settings-btn" : ""
-                  }`}
-                >
-                  <Icon
-                    className={`h-4 w-4 ${props.activeTab === tab.id ? "opacity-100" : "opacity-70"}`}
-                  />
-                  <span
-                    className={
-                      props.activeTab === tab.id ? "" : "hidden sm:inline"
-                    }
-                  >
-                    {tab.label}
-                  </span>
-                  {isDetached && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
-                  )}
-                </Button>
-              )
-            })}
-          </div>
+          <DesktopNavigation
+            tabsRef={tabsRef}
+            activeTab={props.activeTab}
+            setActiveTab={props.setActiveTab}
+            useWindowMode={props.useWindowMode === true}
+            onStatsDragStart={props.onStatsDragStart}
+            onCurationDragStart={props.onCurationDragStart}
+            onGalleryDragStart={props.onGalleryDragStart}
+          />
           {/* Mobile composition tabs (jobs editor only) */}
           {props.activeTab === "jobs" && props.mobileJobTab === "editor" && (
             <div className="no-scrollbar flex flex-1 items-center justify-between gap-2 overflow-x-auto md:hidden">
@@ -604,86 +371,7 @@ export function Header(props: HeaderProps): JSX.Element {
               />
             )}
 
-          {/* Generator toolbar (unified for both desktop and mobile) */}
-          {props.activeTab === "generator" && generatorToolbarProps && (
-            <div className="flex min-w-0 flex-1 items-center gap-1.5">
-              <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-
-              {/* Template selector */}
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <span className="hidden shrink-0 text-xs font-semibold text-muted-foreground sm:inline">
-                  템플릿
-                </span>
-                <Select
-                  value={generatorToolbarProps.effectiveId}
-                  onValueChange={generatorToolbarProps.setSelectedTemplateId}
-                >
-                  <SelectTrigger className="!h-7 w-full border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[160px]">
-                    <SelectValue placeholder="선택..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      value="new"
-                      className="cursor-pointer text-[11px] font-bold text-primary focus:bg-primary/10 focus:text-primary-foreground"
-                    >
-                      + 새 템플릿 만들기
-                    </SelectItem>
-                    <SelectSeparator />
-                    {Object.entries(generatorToolbarProps.groupedTemplates).map(
-                      ([cat, ts]) => {
-                        if (cat === "new") return null
-                        return (
-                          <SelectGroup key={cat}>
-                            <SelectLabel className="text-[9px] font-bold tracking-widest uppercase">
-                              {generatorToolbarProps.catLabel(cat)}
-                            </SelectLabel>
-                            {ts.map((t) => (
-                              <SelectItem
-                                key={t.id}
-                                value={t.id}
-                                className="text-[11px] font-bold"
-                              >
-                                {t.name}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )
-                      }
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Save Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsSaveDialogOpen(true)
-                    }}
-                    disabled={!generatorToolbarProps.generatedCode}
-                    className="!h-7 shrink-0 gap-1 border-line px-2 text-[10px] font-bold hover:bg-muted"
-                  >
-                    <Save className="h-3 w-3" />
-                    <span className="hidden sm:inline">저장</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>템플릿 저장</TooltipContent>
-              </Tooltip>
-
-              {/* Apply Button */}
-              <Button
-                onClick={generatorToolbarProps.handleApply}
-                disabled={!generatorToolbarProps.generatedCode}
-                className="!h-7 shrink-0 gap-1 px-2.5 text-[10px] font-bold"
-              >
-                적용
-                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-              </Button>
-            </div>
-          )}
+          <GeneratorHeaderControls active={props.activeTab === "generator"} />
 
           {/* Curation toolbar — desktop (hidden on mobile) */}
           {props.activeTab === "curation" && (
@@ -1615,73 +1303,6 @@ export function Header(props: HeaderProps): JSX.Element {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ── SAVE DIALOG ── */}
-      {props.activeTab === "generator" && generatorToolbarProps && (
-        <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold">
-                템플릿 저장
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                현재 작성된 템플릿 구성을 저장합니다. 새로운 이름을 입력해
-                주세요.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <Label
-                htmlFor="dialog-save-name"
-                className="mb-2 block text-xs font-semibold text-muted-foreground"
-              >
-                저장 이름
-              </Label>
-              <Input
-                id="dialog-save-name"
-                value={generatorToolbarProps.saveName}
-                onChange={(e) => {
-                  generatorToolbarProps.setSaveName(e.target.value)
-                }}
-                placeholder="저장 이름 입력..."
-                className="h-9 w-full font-mono text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    generatorToolbarProps.handleSave()
-                    setIsSaveDialogOpen(false)
-                  }
-                }}
-              />
-            </div>
-            <DialogFooter className="mt-2 flex flex-row justify-end gap-2 border-t pt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsSaveDialogOpen(false)
-                }}
-                className="h-8 px-4 text-xs font-semibold"
-              >
-                취소
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  generatorToolbarProps.handleSave()
-                  setIsSaveDialogOpen(false)
-                }}
-                disabled={
-                  !generatorToolbarProps.saveName.trim() ||
-                  !generatorToolbarProps.generatedCode
-                }
-                className="h-8 px-4 text-xs font-semibold"
-              >
-                저장
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       )}
     </nav>
   )
