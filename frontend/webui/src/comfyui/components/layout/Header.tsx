@@ -69,17 +69,14 @@ import { CompositionTabsList } from "../CompositionTabsList"
 import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
 import type { WorkerView, CurationStatus, JobView } from "../../types/Message"
-import {
-  SessionPopover,
-  type SessionMarker,
-  type ActiveStateInfo,
-} from "../JobManagerSections"
+import { type SessionMarker, type ActiveStateInfo } from "../JobManagerSections"
 import { TagInputSearch } from "../TagInputSearch"
 import { useCurationToolbar } from "../combinationpicker/useCurationToolbar"
 import { usePanelLayout } from "../../contexts/PanelLayoutContext"
 import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
 import { NAV_TABS, type TabId } from "./nav-tabs"
 import { CurationGroupSelect } from "./CurationGroupSelect"
+import { JobSessionControls } from "./JobSessionControls"
 
 interface HeaderProps {
   useWindowMode?: boolean
@@ -133,8 +130,6 @@ interface HeaderProps {
   onCurationDragStart?: (clientX: number, clientY: number) => void
   onGalleryDragStart?: (clientX: number, clientY: number) => void
 }
-
-const noop = (): void => undefined
 
 export function Header(props: HeaderProps): JSX.Element {
   const { theme, setTheme } = useTheme()
@@ -588,62 +583,25 @@ export function Header(props: HeaderProps): JSX.Element {
             (props.mobileJobTab === "status" ||
               props.mobileJobTab === "list") &&
             props.sessionMarkers && (
-              <div className="flex flex-1 items-center justify-end gap-1.5 md:hidden">
-                <div className="relative">
-                  <SessionPopover
-                    markers={props.sessionMarkers}
-                    sessionJobCounts={props.sessionJobCounts ?? new Map()}
-                    sortedMarkers={props.sortedMarkers ?? []}
-                    selectedId={props.selectedSessionId ?? ""}
-                    activeState={props.activeSessionState ?? null}
-                    isOpen={props.sessionPickerOpen ?? false}
-                    onOpenChange={props.onSessionPickerOpenChange ?? noop}
-                    onSelectSession={props.onSelectSession ?? noop}
-                    onCreateNew={props.onCreateNewSession ?? noop}
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  variant={props.paused === true ? "default" : "outline"}
-                  className="h-8 px-2 text-[10px] font-bold"
-                  onClick={props.onTogglePause}
-                  disabled={!props.isAliveBackend}
-                >
-                  {props.paused === true ? "재개" : "일시중지"}
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 p-2">
-                    <DropdownMenuItem
-                      onClick={props.onCancelAll}
-                      disabled={
-                        !props.isAliveBackend ||
-                        (props.activeJobsCount ?? 0) === 0
-                      }
-                      className="py-3 font-bold text-destructive"
-                    >
-                      진행 중인 모든 작업 취소
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={props.onRetryAllFailed}
-                      className="py-3 font-bold"
-                    >
-                      실패/취소된 모든 작업 재시도
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={props.onDeleteAllFailed}
-                      className="py-3 font-bold text-destructive"
-                    >
-                      실패/취소된 모든 작업 삭제
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <JobSessionControls
+                markers={props.sessionMarkers}
+                sessionJobCounts={props.sessionJobCounts}
+                sortedMarkers={props.sortedMarkers}
+                selectedSessionId={props.selectedSessionId}
+                activeSessionState={props.activeSessionState}
+                sessionPickerOpen={props.sessionPickerOpen}
+                onSessionPickerOpenChange={props.onSessionPickerOpenChange}
+                onSelectSession={props.onSelectSession}
+                onCreateNewSession={props.onCreateNewSession}
+                paused={props.paused}
+                onTogglePause={props.onTogglePause}
+                onCancelAll={props.onCancelAll}
+                onRetryAllFailed={props.onRetryAllFailed}
+                onDeleteAllFailed={props.onDeleteAllFailed}
+                activeJobsCount={props.activeJobsCount}
+                isAliveBackend={props.isAliveBackend}
+                compact
+              />
             )}
 
           {/* Generator toolbar (unified for both desktop and mobile) */}
@@ -1504,71 +1462,24 @@ export function Header(props: HeaderProps): JSX.Element {
             <div className="h-4 w-px bg-border/60 md:hidden" />
           )}
           {props.activeTab === "jobs" && props.sessionMarkers && (
-            <div className="mr-1 hidden items-center gap-1.5 border-r border-line/65 pr-3 md:flex">
-              <div className="relative">
-                <SessionPopover
-                  markers={props.sessionMarkers}
-                  sessionJobCounts={props.sessionJobCounts ?? new Map()}
-                  sortedMarkers={props.sortedMarkers ?? []}
-                  selectedId={props.selectedSessionId ?? ""}
-                  activeState={props.activeSessionState ?? null}
-                  isOpen={props.sessionPickerOpen ?? false}
-                  onOpenChange={props.onSessionPickerOpenChange ?? noop}
-                  onSelectSession={props.onSelectSession ?? noop}
-                  onCreateNew={props.onCreateNewSession ?? noop}
-                />
-              </div>
-              <Button
-                size="sm"
-                variant={props.paused === true ? "default" : "outline"}
-                className="h-8 px-3 text-[11px] font-bold"
-                onClick={props.onTogglePause}
-                disabled={!props.isAliveBackend}
-              >
-                {props.paused === true ? "재개" : "일시중지"}
-              </Button>
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>추가 작업</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="w-56 p-2">
-                  <DropdownMenuItem
-                    onClick={props.onCancelAll}
-                    disabled={
-                      !props.isAliveBackend ||
-                      (props.activeJobsCount ?? 0) === 0
-                    }
-                    className="py-3 font-bold text-destructive"
-                  >
-                    진행 중인 모든 작업 취소
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={props.onRetryAllFailed}
-                    className="py-3 font-bold"
-                  >
-                    실패/취소된 모든 작업 재시도
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={props.onDeleteAllFailed}
-                    className="py-3 font-bold text-destructive"
-                  >
-                    실패/취소된 모든 작업 삭제
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <JobSessionControls
+              markers={props.sessionMarkers}
+              sessionJobCounts={props.sessionJobCounts}
+              sortedMarkers={props.sortedMarkers}
+              selectedSessionId={props.selectedSessionId}
+              activeSessionState={props.activeSessionState}
+              sessionPickerOpen={props.sessionPickerOpen}
+              onSessionPickerOpenChange={props.onSessionPickerOpenChange}
+              onSelectSession={props.onSelectSession}
+              onCreateNewSession={props.onCreateNewSession}
+              paused={props.paused}
+              onTogglePause={props.onTogglePause}
+              onCancelAll={props.onCancelAll}
+              onRetryAllFailed={props.onRetryAllFailed}
+              onDeleteAllFailed={props.onDeleteAllFailed}
+              activeJobsCount={props.activeJobsCount}
+              isAliveBackend={props.isAliveBackend}
+            />
           )}
           <div className="hidden items-center gap-1 md:flex">
             <DropdownMenu>
