@@ -20,6 +20,8 @@ import {
 } from "../JobManagerSections"
 
 const noop = (): void => undefined
+const EMPTY_SESSION_COUNTS = new Map<string, number>()
+const EMPTY_SESSION_MARKERS: SessionMarker[] = []
 
 export interface JobSessionControlsProps {
   markers: SessionMarker[]
@@ -48,6 +50,45 @@ interface JobActionsMenuProps {
   onRetryAllFailed?: (() => void) | undefined
   onDeleteAllFailed?: (() => void) | undefined
   showTooltip: boolean
+}
+
+interface NormalizedJobSessionControls {
+  markers: SessionMarker[]
+  sessionJobCounts: Map<string, number>
+  sortedMarkers: SessionMarker[]
+  selectedSessionId: string
+  activeSessionState: ActiveStateInfo | null
+  sessionPickerOpen: boolean
+  onSessionPickerOpenChange: (open: boolean) => void
+  onSelectSession: (id: string) => void
+  onCreateNewSession: () => void
+  paused: boolean
+  onTogglePause?: (() => void) | undefined
+  onCancelAll?: (() => void) | undefined
+  onRetryAllFailed?: (() => void) | undefined
+  onDeleteAllFailed?: (() => void) | undefined
+  activeJobsCount: number
+  isAliveBackend: boolean
+  compact: boolean
+}
+
+function normalizeControls(
+  props: JobSessionControlsProps
+): NormalizedJobSessionControls {
+  return {
+    ...props,
+    sessionJobCounts: props.sessionJobCounts ?? EMPTY_SESSION_COUNTS,
+    sortedMarkers: props.sortedMarkers ?? EMPTY_SESSION_MARKERS,
+    selectedSessionId: props.selectedSessionId ?? "",
+    activeSessionState: props.activeSessionState ?? null,
+    sessionPickerOpen: props.sessionPickerOpen ?? false,
+    onSessionPickerOpenChange: props.onSessionPickerOpenChange ?? noop,
+    onSelectSession: props.onSelectSession ?? noop,
+    onCreateNewSession: props.onCreateNewSession ?? noop,
+    paused: props.paused ?? false,
+    activeJobsCount: props.activeJobsCount ?? 0,
+    compact: props.compact ?? false,
+  }
 }
 
 function JobActionsMenu({
@@ -105,25 +146,28 @@ function JobActionsMenu({
  * 모바일과 데스크톱은 배치와 글자 크기만 다르다. 명령의 활성화 조건과
  * 누락된 선택 콜백의 기본 동작은 이곳에서 동일하게 유지한다.
  */
-export function JobSessionControls({
-  markers,
-  sessionJobCounts = new Map(),
-  sortedMarkers = [],
-  selectedSessionId = "",
-  activeSessionState = null,
-  sessionPickerOpen = false,
-  onSessionPickerOpenChange = noop,
-  onSelectSession = noop,
-  onCreateNewSession = noop,
-  paused = false,
-  onTogglePause,
-  onCancelAll,
-  onRetryAllFailed,
-  onDeleteAllFailed,
-  activeJobsCount = 0,
-  isAliveBackend,
-  compact = false,
-}: JobSessionControlsProps): React.JSX.Element {
+export function JobSessionControls(
+  props: JobSessionControlsProps
+): React.JSX.Element {
+  const {
+    markers,
+    sessionJobCounts,
+    sortedMarkers,
+    selectedSessionId,
+    activeSessionState,
+    sessionPickerOpen,
+    onSessionPickerOpenChange,
+    onSelectSession,
+    onCreateNewSession,
+    paused,
+    onTogglePause,
+    onCancelAll,
+    onRetryAllFailed,
+    onDeleteAllFailed,
+    activeJobsCount,
+    isAliveBackend,
+    compact,
+  } = normalizeControls(props)
   return (
     <div
       className={
