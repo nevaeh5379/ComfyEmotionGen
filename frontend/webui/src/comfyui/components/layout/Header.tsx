@@ -75,14 +75,11 @@ import {
   type ActiveStateInfo,
 } from "../JobManagerSections"
 import { TagInputSearch } from "../TagInputSearch"
-import {
-  FREE_GROUP_LABELS,
-  type FreeGroupBy,
-} from "../combinationpicker/freeCurationGroupers"
 import { useCurationToolbar } from "../combinationpicker/useCurationToolbar"
 import { usePanelLayout } from "../../contexts/PanelLayoutContext"
 import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
 import { NAV_TABS, type TabId } from "./nav-tabs"
+import { CurationGroupSelect } from "./CurationGroupSelect"
 
 interface HeaderProps {
   useWindowMode?: boolean
@@ -737,166 +734,14 @@ export function Header(props: HeaderProps): JSX.Element {
               className="hidden items-center gap-1.5 md:flex"
             >
               <div className="hidden h-4 w-px shrink-0 bg-line/60 md:block" />
-              <Select
-                value={curToolbar.activeGroupId}
-                onValueChange={(v) => {
-                  curToolbar.selectCurationGroup(v)
-                }}
-              >
-                <SelectTrigger className="hidden !h-7 w-[150px] border-line bg-background px-1.5 !py-1 text-[11px] font-bold shadow-none focus:ring-0 sm:w-[200px] md:inline-flex">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel className="text-[10px] text-muted-foreground">
-                      기본 분류
-                    </SelectLabel>
-                    <SelectItem
-                      value="preset:template:__current__"
-                      className="text-[12px] font-bold"
-                    >
-                      현재 템플릿 축 조합 (전체)
-                    </SelectItem>
-                    {curToolbar.savedTemplates.map((t) => (
-                      <SelectItem
-                        key={t.id}
-                        value={`preset:template:${t.id}`}
-                        className="text-[12px] font-bold"
-                      >
-                        {t.name} (축 조합)
-                      </SelectItem>
-                    ))}
-                    {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
-                      (mode) => {
-                        let label = FREE_GROUP_LABELS[mode];
-                        if (mode === "filename") label = "파일명 기준 (전체)";
-                        if (mode === "parsedFilename") label = "파일명 패턴 파싱 (전체)";
-                        if (mode === "tags") label = "태그별 분류 (전체)";
-                        if (mode === "savedTemplate") label = "템플릿 해시별 (전체)";
-                        return (
-                          <SelectItem
-                            key={mode}
-                            value={`preset:free:${mode}`}
-                            className="text-[12px] font-bold"
-                          >
-                            {label}
-                          </SelectItem>
-                        );
-                      }
-                    )}
-                  </SelectGroup>
-                  {curToolbar.savedGroups.length > 0 && (
-                    <>
-                      <SelectSeparator />
-                      <SelectGroup>
-                        <SelectLabel className="text-[10px] text-muted-foreground">
-                          저장된 큐레이션 그룹
-                        </SelectLabel>
-                        {curToolbar.savedGroups.map((g) => (
-                          <SelectItem
-                            key={g.id}
-                            value={g.id}
-                            className="text-[12px] font-bold"
-                          >
-                            {g.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </>
-                  )}
-                  {curToolbar.activeGroupId === "custom" && (
-                    <>
-                      <SelectSeparator />
-                      <SelectItem value="custom" disabled className="text-[12px] font-bold italic">
-                        (수정됨)
-                      </SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+              <CurationGroupSelect toolbar={curToolbar} />
             </div>
           )}
 
           {/* Curation toolbar — mobile (hidden on desktop) */}
           {props.activeTab === "curation" && (
             <div className="flex items-center gap-1 md:hidden">
-              <Select
-                value={curToolbar.activeGroupId}
-                onValueChange={(v) => {
-                  curToolbar.selectCurationGroup(v)
-                }}
-              >
-                <SelectTrigger className="!h-7 w-[120px] border-line bg-background px-1.5 !py-1 text-[10px] font-bold shadow-none focus:ring-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel className="text-[10px] text-muted-foreground">
-                      기본 분류
-                    </SelectLabel>
-                    <SelectItem
-                      value="preset:template:__current__"
-                      className="text-[11px] font-bold"
-                    >
-                      현재 템플릿 축 조합 (전체)
-                    </SelectItem>
-                    {curToolbar.savedTemplates.map((t) => (
-                      <SelectItem
-                        key={t.id}
-                        value={`preset:template:${t.id}`}
-                        className="text-[11px] font-bold"
-                      >
-                        {t.name} (축 조합)
-                      </SelectItem>
-                    ))}
-                    {(Object.keys(FREE_GROUP_LABELS) as FreeGroupBy[]).map(
-                      (mode) => {
-                        let label = FREE_GROUP_LABELS[mode];
-                        if (mode === "filename") label = "파일명 기준 (전체)";
-                        if (mode === "parsedFilename") label = "파일명 패턴 파싱 (전체)";
-                        if (mode === "tags") label = "태그별 분류 (전체)";
-                        if (mode === "savedTemplate") label = "템플릿 해시별 (전체)";
-                        return (
-                          <SelectItem
-                            key={mode}
-                            value={`preset:free:${mode}`}
-                            className="text-[11px] font-bold"
-                          >
-                            {label}
-                          </SelectItem>
-                        );
-                      }
-                    )}
-                  </SelectGroup>
-                  {curToolbar.savedGroups.length > 0 && (
-                    <>
-                      <SelectSeparator />
-                      <SelectGroup>
-                        <SelectLabel className="text-[10px] text-muted-foreground">
-                          저장된 큐레이션 그룹
-                        </SelectLabel>
-                        {curToolbar.savedGroups.map((g) => (
-                          <SelectItem
-                            key={g.id}
-                            value={g.id}
-                            className="text-[11px] font-bold"
-                          >
-                            {g.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </>
-                  )}
-                  {curToolbar.activeGroupId === "custom" && (
-                    <>
-                      <SelectSeparator />
-                      <SelectItem value="custom" disabled className="text-[11px] font-bold italic">
-                        (수정됨)
-                      </SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+              <CurationGroupSelect toolbar={curToolbar} compact />
 
               <Button
                 size="sm"
