@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import { useEffectLog } from "@/lib/renderLogger"
 import { DEFAULT_BACKEND_URL } from "@/lib/runtime"
 import { API, HEADERS, DEFAULT_DOWNLOAD_FILENAME } from "@/lib/api"
+import { triggerBlobDownload } from "../utils/downloadImages"
 import type {
   AssetGroup,
   BackendEvent,
@@ -471,14 +472,7 @@ export const curationApi = {
     })
     if (!res.ok) throw new Error(`HTTP ${String(res.status)}`)
     const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = DEFAULT_DOWNLOAD_FILENAME
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    triggerBlobDownload(blob, DEFAULT_DOWNLOAD_FILENAME)
   },
   async bulkAutoTags(
     backendUrl: string,

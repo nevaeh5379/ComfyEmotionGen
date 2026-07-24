@@ -55,6 +55,7 @@ import {
   substitute,
   type AxisValueFilter,
 } from "../../lib/workflowUtils"
+import { triggerBlobDownload } from "../utils/downloadImages"
 
 const WORKFLOW_TEST_RECENTS_KEY = "workflow_test_recent_items"
 const MAX_WORKFLOW_TEST_RECENTS = 5
@@ -322,12 +323,7 @@ export function WorkCompositionPanel({
     )
     if (active === undefined || active.template.trim() === "") return
     const blob = new Blob([active.template], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${active.name}.ceg`
-    a.click()
-    URL.revokeObjectURL(url)
+    triggerBlobDownload(blob, `${active.name}.ceg`)
   }, [template])
 
   const handleMouseDown = useCallback(
@@ -693,12 +689,7 @@ export function WorkCompositionPanel({
                         const blob = new Blob([workflow.workflowJson], {
                           type: "application/json",
                         })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement("a")
-                        a.href = url
-                        a.download = "workflow.json"
-                        a.click()
-                        URL.revokeObjectURL(url)
+                        triggerBlobDownload(blob, "workflow.json")
                       }}
                     >
                       <Download className="h-3.5 w-3.5" />

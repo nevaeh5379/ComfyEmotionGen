@@ -32,6 +32,7 @@ import type { SavedTemplate } from "@/comfyui/hooks/useSavedTemplates"
 import type { SavedWorkflow } from "@/comfyui/hooks/useSavedWorkflows"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { toast } from "sonner"
+import { triggerBlobDownload } from "../utils/downloadImages"
 
 interface Props {
   settings: AppSettings
@@ -471,12 +472,10 @@ export function SettingsPanel({
                     const blob = new Blob([JSON.stringify(data, null, 2)], {
                       type: "application/json",
                     })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = `templates_${new Date().toISOString().slice(0, 10)}.json`
-                    a.click()
-                    URL.revokeObjectURL(url)
+                    triggerBlobDownload(
+                      blob,
+                      `templates_${new Date().toISOString().slice(0, 10)}.json`
+                    )
                     toast.success("템플릿 내보내기가 완료되었습니다.")
                   }}
                   className="h-8 text-xs transition-transform active:scale-95"
@@ -578,12 +577,10 @@ export function SettingsPanel({
                     const blob = new Blob([JSON.stringify(data, null, 2)], {
                       type: "application/json",
                     })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = `workflows_${new Date().toISOString().slice(0, 10)}.json`
-                    a.click()
-                    URL.revokeObjectURL(url)
+                    triggerBlobDownload(
+                      blob,
+                      `workflows_${new Date().toISOString().slice(0, 10)}.json`
+                    )
                     toast.success("워크플로우 내보내기가 완료되었습니다.")
                   }}
                   className="h-8 text-xs transition-transform active:scale-95"

@@ -61,6 +61,7 @@ import { API, HEADERS } from "@/lib/api"
 import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import { itemKey, substitute as substituteItem } from "../../lib/workflowUtils"
 import { useVirtualizer } from "@tanstack/react-virtual"
+import { triggerBlobDownload } from "../utils/downloadImages"
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -1443,16 +1444,10 @@ export function TemplateGeneratorPanel({
     }
   }
   const handleDownload = (): void => {
-    const u = URL.createObjectURL(
-      new Blob([generatedCode], { type: "text/plain;charset=utf-8" })
+    triggerBlobDownload(
+      new Blob([generatedCode], { type: "text/plain;charset=utf-8" }),
+      `${saveName.replace(/\s+/g, "_") || "template"}.template`
     )
-    const a = document.createElement("a")
-    a.href = u
-    a.download = `${saveName.replace(/\s+/g, "_") || "template"}.template`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(u)
     toast.success("다운로드 완료")
   }
 
