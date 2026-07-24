@@ -62,46 +62,17 @@ import { CEG_TEMPLATE_DEBOUNCE_MS } from "@/lib/constants"
 import { itemKey, substitute as substituteItem } from "../../lib/workflowUtils"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { triggerBlobDownload } from "../utils/downloadImages"
+import {
+  parseCegTemplate,
+  type VisualAxis,
+  type VisualCombine,
+  type VisualExclude,
+  type VisualOverride,
+  type VisualVariable,
+} from "../utils/cegTemplateParser"
 
 // ── Types ─────────────────────────────────────────────────────────────
 
-interface VisualVariable {
-  id: string
-  name: string
-  value: string
-}
-interface AxisEntryProperty {
-  id: string
-  name: string
-  value: string
-}
-interface VisualAxisEntry {
-  id: string
-  key: string
-  fileKey: string
-  value: string
-  properties: AxisEntryProperty[]
-  isComplex: boolean
-}
-interface VisualAxis {
-  id: string
-  name: string
-  include: string
-  entries: VisualAxisEntry[]
-}
-interface VisualCombine {
-  id: string
-  expression: string
-}
-interface VisualExclude {
-  id: string
-  statement: string
-}
-interface VisualOverride {
-  id: string
-  statement: string
-  body: string
-}
 export interface TemplateItem {
   id: string
   name: string
@@ -125,17 +96,6 @@ interface TemplateDraft {
   templateBody: string
   filenameBody: string
   saveName: string
-}
-
-interface ParsedTemplate {
-  variables: VisualVariable[]
-  axes: VisualAxis[]
-  combines: VisualCombine[]
-  excludes: VisualExclude[]
-  overrides: VisualOverride[]
-  templateBody: string
-  filenameBody: string
-  cleanFilename: boolean
 }
 
 // ── localStorage helpers ─────────────────────────────────────────────
@@ -258,140 +218,6 @@ function CollapsibleSection({
       </div>
     </div>
   )
-}
-
-// ── Parser ────────────────────────────────────────────────────────────
-
-function parseCegTemplate(code: string): ParsedTemplate {
-  const variables: VisualVariable[] = []
-  const axes: VisualAxis[] = []
-  const combines: VisualCombine[] = []
-  const excludes: VisualExclude[] = []
-  const overrides: VisualOverride[] = []
-  let templateBody = ""
-  let filenameBody = ""
-  let cleanFilename = true
-  if (code === "")
-    return {
-      variables,
-      axes,
-      combines,
-      excludes,
-      overrides,
-      templateBody,
-      filenameBody,
-      cleanFilename,
-    }
-  let match: RegExpExecArray | null
-  const setRe =
-    /\{\{\s*set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"\s*\}\}/g
-  let vi = 0
-  while ((match = setRe.exec(code)) !== null) {
-    const name = match[1] ?? ""
-    const val = match[2] ?? ""
-    if (name === "clean_filename") {
-      cleanFilename = val.toLowerCase() === "true"
-    } else {
-      variables.push({ id: `var-${String(vi++)}`, name, value: val })
-    }
-  }
-  const axRe =
-    /\{\{\s*axis\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+include="((?:[^"\\]|\\.)*)")?\s*\}\}([\s\S]*?)\{\{\s*\/axis\s*\}\}/gi
-  let ai = 0
-  while ((match = axRe.exec(code)) !== null) {
-    const entries: VisualAxisEntry[] = []
-    let ei = 0
-    for (const line of (match[3] ?? "").split("\n")) {
-      const t = line.trim()
-      if (t === "" || t.startsWith("#") || t.startsWith("//")) continue
-      const s =
-        /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*"((?:[^"\\]|\\.)*)"$/.exec(
-          t
-        )
-      if (s !== null) {
-        entries.push({
-          id: `e-${String(ai)}-${String(ei++)}`,
-          key: s[1] ?? "",
-          fileKey: s[2] ?? "",
-          value: s[3] ?? "",
-          properties: [],
-          isComplex: false,
-        })
-        continue
-      }
-      const c =
-        /^([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+as\s+"((?:[^"\\]|\\.)*)")?\s*:\s*\{\s*([^{}]+)\s*\}$/.exec(
-          t
-        )
-      if (c !== null) {
-        const props: AxisEntryProperty[] = []
-        const pr = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*"((?:[^"\\]|\\.)*)"/g
-        let pm: RegExpExecArray | null
-        let pi = 0
-        while ((pm = pr.exec(c[3] ?? "")) !== null)
-          props.push({
-            id: `p-${String(ai)}-${String(ei)}-${String(pi++)}`,
-            name: pm[1] ?? "",
-            value: pm[2] ?? "",
-          })
-        entries.push({
-          id: `e-${String(ai)}-${String(ei++)}`,
-          key: c[1] ?? "",
-          fileKey: c[2] ?? "",
-          value: "",
-          properties: props,
-          isComplex: true,
-        })
-      }
-    }
-    axes.push({
-      id: `a-${String(ai++)}`,
-      name: match[1] ?? "",
-      include: match[2] ?? "",
-      entries,
-    })
-  }
-  const cbRe = /\{\{\s*combine\s+([^}]+)\s*\}\}/g
-  let ci = 0
-  while ((match = cbRe.exec(code)) !== null) {
-    const e = (match[1] ?? "").trim()
-    if (!e.startsWith("/"))
-      combines.push({ id: `c-${String(ci++)}`, expression: e })
-  }
-  const exRe = /\{\{\s*exclude\s+([^}]+)\s*\}\}/g
-  let xi = 0
-  while ((match = exRe.exec(code)) !== null)
-    excludes.push({
-      id: `ex-${String(xi++)}`,
-      statement: (match[1] ?? "").trim(),
-    })
-  const ovRe =
-    /\{\{\s*override\s+([^}]+)\s*\}\}([\s\S]*?)\{\{\s*\/override\s*\}\}/g
-  let oi = 0
-  while ((match = ovRe.exec(code)) !== null)
-    overrides.push({
-      id: `ov-${String(oi++)}`,
-      statement: (match[1] ?? "").trim(),
-      body: (match[2] ?? "").replace(/^\n/, "").replace(/\n$/, ""),
-    })
-  const tm = /\{\{\s*template\s*\}\}([\s\S]*?)\{\{\s*\/template\s*\}\}/i.exec(
-    code
-  )
-  if (tm !== null) templateBody = tm[1] ?? ""
-  const fn = /\{\{\s*filename\s*\}\}([\s\S]*?)\{\{\s*\/filename\s*\}\}/i.exec(
-    code
-  )
-  if (fn !== null) filenameBody = fn[1] ?? ""
-  return {
-    variables,
-    axes,
-    combines,
-    excludes,
-    overrides,
-    templateBody,
-    filenameBody,
-    cleanFilename,
-  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
