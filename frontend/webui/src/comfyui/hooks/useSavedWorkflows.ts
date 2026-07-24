@@ -2,6 +2,7 @@ import { useCallback } from "react"
 import { type NodeMapping } from "../../lib/workflow"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { usePersistedItems } from "./usePersistedItems"
+import { createPersistedId, upsertNamedItem } from "../utils/persistedItems"
 
 export interface SavedNodeMappingPreset {
   id: string
@@ -82,27 +83,15 @@ export function useSavedWorkflows(): {
 
   const saveWorkflow = useCallback(
     (name: string, workflow: string): SavedWorkflow => {
-      const trimmed = name.trim()
       const all = load()
-      const existing = all.find((w) => w.name === trimmed)
-      let nextW: SavedWorkflow
-      let nextAll: SavedWorkflow[]
-
-      if (existing) {
-        nextW = { ...existing, workflow, savedAt: Date.now() }
-        nextAll = all.map((w) => (w.id === existing.id ? nextW : w))
-      } else {
-        nextW = {
-          id: `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
-          name: trimmed,
-          workflow,
-          mappingPresets: [],
-          savedAt: Date.now(),
-        }
-        nextAll = [...all, nextW]
-      }
-      persist(nextAll)
-      return nextW
+      const result = upsertNamedItem(all, name, (fields, existing) => ({
+        ...existing,
+        ...fields,
+        workflow,
+        mappingPresets: existing?.mappingPresets ?? [],
+      }))
+      persist(result.items)
+      return result.item
     },
     [persist]
   )
@@ -139,7 +128,7 @@ export function useSavedWorkflows(): {
         nextPresets = [
           ...presets,
           {
-            id: `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+            id: createPersistedId(),
             name: trimmed,
             mappings,
             savedAt: Date.now(),

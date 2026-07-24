@@ -2,6 +2,7 @@ import { useCallback } from "react"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import type { ComfyWorkflowJSON } from "@/comfyui/types/workflow"
 import { usePersistedItems } from "./usePersistedItems"
+import { createPersistedId, upsertNamedItem } from "../utils/persistedItems"
 
 export interface EditorSavedWorkflow {
   id: string
@@ -22,9 +23,7 @@ function load(): EditorSavedWorkflow[] {
     return parsed.map((w: unknown) => {
       const item = w as Partial<EditorSavedWorkflow>
       return {
-        id:
-          item.id ??
-          `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
+        id: item.id ?? createPersistedId(),
         name: item.name ?? "Untitled",
         workflow: item.workflow ?? { nodes: [], links: [] },
         savedAt: item.savedAt ?? Date.now(),
@@ -50,26 +49,14 @@ export function useEditorSavedWorkflows(): {
 
   const saveWorkflow = useCallback(
     (name: string, workflow: ComfyWorkflowJSON): EditorSavedWorkflow => {
-      const trimmed = name.trim()
       const all = load()
-      const existing = all.find((w) => w.name === trimmed)
-      let nextW: EditorSavedWorkflow
-      let nextAll: EditorSavedWorkflow[]
-
-      if (existing) {
-        nextW = { ...existing, workflow, savedAt: Date.now() }
-        nextAll = all.map((w) => (w.id === existing.id ? nextW : w))
-      } else {
-        nextW = {
-          id: `${String(Date.now())}-${Math.random().toString(36).slice(2, 7)}`,
-          name: trimmed,
-          workflow,
-          savedAt: Date.now(),
-        }
-        nextAll = [...all, nextW]
-      }
-      persist(nextAll)
-      return nextW
+      const result = upsertNamedItem(all, name, (fields, existing) => ({
+        ...existing,
+        ...fields,
+        workflow,
+      }))
+      persist(result.items)
+      return result.item
     },
     [persist]
   )
