@@ -24,6 +24,36 @@ function resolveCommit(): string {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined
+
+          // Keep long-lived framework and UI dependencies independently
+          // cacheable when application code changes.
+          if (
+            id.includes("/react/") ||
+            id.includes("/react-dom/") ||
+            id.includes("/scheduler/") ||
+            id.includes("/@radix-ui/") ||
+            id.includes("/radix-ui/") ||
+            id.includes("/@floating-ui/") ||
+            id.includes("/react-remove-scroll/") ||
+            id.includes("/react-style-singleton/") ||
+            id.includes("/use-callback-ref/") ||
+            id.includes("/use-sidecar/")
+          ) {
+            return "ui-vendor"
+          }
+          if (id.includes("/zod/")) return "validation-vendor"
+          if (id.includes("/sonner/")) return "notifications-vendor"
+
+          return undefined
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

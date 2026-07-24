@@ -1077,11 +1077,22 @@ class JobStore:
         joins, where, params = self._saved_images_filter_clause(
             job_id=job_id, status=status, filename=filename, tag=tag
         )
-        query = (
-            f"SELECT si.* FROM saved_images si{joins}{where} "
-            "ORDER BY si.created_at DESC LIMIT ? OFFSET ?"
-        )
-        params.extend([limit, offset])
+        # limit <= 0 은 "제한 없음" — 큐레이션 탭이 전체 이미지를 로드해야
+        # 매칭이 누락 없이 동작하므로 LIMIT 절을 생략한다.
+        if limit > 0:
+            query = (
+                f"SELECT si.* FROM saved_images si{joins}{where} "
+                "ORDER BY si.created_at DESC LIMIT ? OFFSET ?"
+            )
+            params.extend([limit, offset])
+        else:
+            query = (
+                f"SELECT si.* FROM saved_images si{joins}{where} "
+                "ORDER BY si.created_at DESC"
+            )
+            if offset > 0:
+                query += " OFFSET ?"
+                params.append(offset)
         cursor = await self._conn.execute(query, params)
         rows = await cursor.fetchall()
         if not rows:

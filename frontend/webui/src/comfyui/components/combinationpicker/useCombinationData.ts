@@ -140,7 +140,7 @@ export function useCombinationData({
       if (!activeTemplate.trim()) {
         if (freeGroupMode !== null) {
           const imagesRes = await fetch(
-            `${backendUrl}/saved-images?limit=5000`,
+            `${backendUrl}/saved-images?limit=0`,
             { signal: controller.signal }
           )
           if (!imagesRes.ok)
@@ -168,7 +168,7 @@ export function useCombinationData({
           body: JSON.stringify({ template: activeTemplate }),
           signal: controller.signal,
         }),
-        fetch(`${backendUrl}/saved-images?limit=5000`, {
+        fetch(`${backendUrl}/saved-images?limit=0`, {
           signal: controller.signal,
         }),
       ])
