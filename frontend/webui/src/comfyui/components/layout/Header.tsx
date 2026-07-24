@@ -6,14 +6,10 @@ import {
   RefreshCwIcon,
   DownloadIcon,
   Trash2Icon,
-  Sun,
-  Moon,
-  Monitor,
   LayoutGrid,
   ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useTheme } from "@/components/theme-context"
 import {
   Select,
   SelectContent,
@@ -53,6 +49,7 @@ import { DesktopNavigation, MobileNavigation } from "./HeaderNavigation"
 import { GeneratorHeaderControls } from "./GeneratorHeaderControls"
 import { useHeaderResponsiveLayout } from "../../hooks/useHeaderResponsiveLayout"
 import { GalleryFilters } from "./GalleryFilters"
+import { ThemeSelector } from "./ThemeSelector"
 
 interface HeaderProps {
   useWindowMode?: boolean
@@ -108,7 +105,6 @@ interface HeaderProps {
 }
 
 export function Header(props: HeaderProps): JSX.Element {
-  const { theme, setTheme } = useTheme()
   const panel = usePanelLayout()
   const tb = useGalleryToolbar()
   const curToolbar = useCurationToolbar()
@@ -1024,55 +1020,7 @@ export function Header(props: HeaderProps): JSX.Element {
               isAliveBackend={props.isAliveBackend}
             />
           )}
-          <div className="hidden items-center gap-1 md:flex">
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="icon" variant="ghost" className="h-8 w-8">
-                      {theme === "light" ? (
-                        <Sun className="h-4 w-4" />
-                      ) : theme === "dark" ? (
-                        <Moon className="h-4 w-4" />
-                      ) : (
-                        <Monitor className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>테마 설정</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => {
-                    ;(setTheme as (t: string) => void)("light")
-                  }}
-                  className="gap-2"
-                >
-                  <Sun className="h-4 w-4" />
-                  라이트
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    ;(setTheme as (t: string) => void)("dark")
-                  }}
-                  className="gap-2"
-                >
-                  <Moon className="h-4 w-4" />
-                  다크
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    ;(setTheme as (t: string) => void)("system")
-                  }}
-                  className="gap-2"
-                >
-                  <Monitor className="h-4 w-4" />
-                  시스템
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <ThemeSelector />
           <div className="hidden items-center gap-2 md:flex">
             <ServerStatus
               name="백엔드"
