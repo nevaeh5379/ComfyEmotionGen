@@ -1,7 +1,6 @@
 import {
   ArrowDown,
   ArrowUp,
-  XIcon,
   FilterIcon,
   MoreVertical,
   RefreshCwIcon,
@@ -33,8 +32,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { Tabs } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -46,7 +43,6 @@ import { WorkCompositionToolbar } from "../WorkCompositionToolbar"
 import { ServerStatus, WorkerStatus } from "../StatusIndicators"
 import type { WorkerView, CurationStatus, JobView } from "../../types/Message"
 import { type SessionMarker, type ActiveStateInfo } from "../JobManagerSections"
-import { TagInputSearch } from "../TagInputSearch"
 import { useCurationToolbar } from "../combinationpicker/useCurationToolbar"
 import { usePanelLayout } from "../../contexts/PanelLayoutContext"
 import { useGalleryToolbar } from "../../contexts/GalleryToolbarContext"
@@ -56,6 +52,7 @@ import { JobSessionControls } from "./JobSessionControls"
 import { DesktopNavigation, MobileNavigation } from "./HeaderNavigation"
 import { GeneratorHeaderControls } from "./GeneratorHeaderControls"
 import { useHeaderResponsiveLayout } from "../../hooks/useHeaderResponsiveLayout"
+import { GalleryFilters } from "./GalleryFilters"
 
 interface HeaderProps {
   useWindowMode?: boolean
@@ -1092,76 +1089,7 @@ export function Header(props: HeaderProps): JSX.Element {
         </div>
       </div>
 
-      {/* Collapsible Filters (gallery only) */}
-      {props.activeTab === "gallery" && tb.showFilters && (
-        <div className="border-t border-line/60 bg-panel/80 px-3 py-2 md:px-4 md:py-2.5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
-              <span className="shrink-0 text-[11px] font-bold text-muted-foreground uppercase">
-                검색
-              </span>
-              <div className="max-w-lg flex-1">
-                <TagInputSearch
-                  value={tb.searchInput}
-                  tags={tb.searchTags}
-                  candidates={tb.candidates.filter((c) => {
-                    const valClean = tb.searchInput
-                      .replace(/^[@#$]/, "")
-                      .toLowerCase()
-                    return c.value.toLowerCase().includes(valClean)
-                  })}
-                  placeholder="검색어 입력 (@파일명, #태그, $메타데이터)"
-                  onValueChange={tb.setSearchInput}
-                  onAddTag={(tag) => {
-                    if (!tb.searchTags.includes(tag)) {
-                      tb.setSearchTags([...tb.searchTags, tag])
-                    }
-                    tb.setSearchInput("")
-                  }}
-                  onRemoveTag={(tag) => {
-                    tb.setSearchTags(tb.searchTags.filter((t) => t !== tag))
-                  }}
-                  size="sm"
-                />
-              </div>
-            </div>
-
-            <div className="hidden h-4 w-px shrink-0 bg-line md:block" />
-
-            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line/40 pt-2 md:border-0 md:pt-0">
-              <div className="flex cursor-pointer items-center gap-2">
-                <Checkbox
-                  id="gallery-hide-rejected"
-                  checked={tb.hideRejected}
-                  onCheckedChange={(v) => {
-                    tb.setHideRejected(v === true)
-                  }}
-                />
-                <Label
-                  htmlFor="gallery-hide-rejected"
-                  className="cursor-pointer text-[11px] font-bold text-muted-foreground"
-                >
-                  리젝 숨기기
-                </Label>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-[10px] font-bold text-muted-foreground"
-                onClick={() => {
-                  tb.setSearchTags([])
-                  tb.setSearchInput("")
-                  tb.setHideRejected(false)
-                }}
-              >
-                <XIcon className="mr-1 h-3 w-3" />
-                필터 초기화
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <GalleryFilters active={props.activeTab === "gallery"} />
     </nav>
   )
 }
